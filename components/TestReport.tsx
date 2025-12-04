@@ -14,9 +14,9 @@ import { MicrobiologyReportDisplay } from './MicrobiologyReportDisplay';
 /* ----------------------- Helpers & Constants ----------------------- */
 
 const DEFAULT_MICROBIOLOGY_BLOCK_ROWS = 12;
-const HEADER_ROWS_RESERVE = 8;
-const FOOTER_ROWS_RESERVE = 6;
-const CONTENT_ROWS_PER_PAGE = 42 - HEADER_ROWS_RESERVE - FOOTER_ROWS_RESERVE; // adjust if needed
+const HEADER_ROWS_RESERVE = 8;      // Header section + spacing
+const FOOTER_ROWS_RESERVE = 8;      // Footer section with signatures
+const CONTENT_ROWS_PER_PAGE = 20;   // Available rows for test content (max 20 rows per page)
 
 const formatAge = (p: Visit['patient']) => {
   if (!p) return 'N/A';
@@ -53,10 +53,16 @@ const estimateMicrobiologyRows = (test: VisitTest) => {
 };
 
 const countDisplayRowsForTest = (test: VisitTest) => {
-  let rows = 1; // test title
+  // Culture tests take more space
+  if (isCultureTest(test)) {
+    return estimateMicrobiologyRows(test);
+  }
+  
+  // For regular tests: title(1) + header(1) + parameters
+  let rows = 2;
   const fields = test.template?.parameters?.fields || [];
-  rows += Math.max(1, fields.length); // if no params, show 1 row "No parameters"
-  if (isCultureTest(test)) return Math.max(rows, estimateMicrobiologyRows(test));
+  rows += Math.max(1, fields.length); // at least 1 row for parameters
+  
   return rows;
 };
 
@@ -89,40 +95,44 @@ const createReportPages = (testsByCategory: Record<string, VisitTest[]>) => {
       const isCulture = isCultureTest(test);
       const testRows = countDisplayRowsForTest(test);
 
-      // Culture test MUST start on a fresh page (Option A)
+      // Culture test MUST start on a fresh page
       if (isCulture) {
         if (currentPage.groups.length > 0) pushPage();
         const cultureRows = Math.max(testRows, estimateMicrobiologyRows(test));
-        const group: PageGroup = { department, tests: [test], displayRows: cultureRows + 1 }; // +1 group header
+        const group: PageGroup = { department, tests: [test], displayRows: cultureRows + 2 };
         currentPage.groups.push(group);
         currentPage.usedRows += group.displayRows;
-        // save this page and start a new one for subsequent tests
+        // Save this page and start new one
         pushPage();
         return;
       }
 
       // Non-culture test handling
       const existing = currentPage.groups.find(g => g.department === department);
+      const testRowsOnly = testRows; // Just the test rows, no extra spacing
 
       if (existing) {
         // If adding this test exceeds usable rows -> new page
-        if (currentPage.usedRows + testRows > usableRows) {
+        if (currentPage.usedRows + testRowsOnly > usableRows) {
           pushPage();
-          const newGroup: PageGroup = { department, tests: [test], displayRows: testRows + 1 };
+          const newGroup: PageGroup = { department, tests: [test], displayRows: testRowsOnly };
           currentPage.groups.push(newGroup);
           currentPage.usedRows += newGroup.displayRows;
         } else {
-          // append to existing
+          // Append to existing group
           existing.tests.push(test);
-          existing.displayRows += testRows;
-          currentPage.usedRows += testRows;
+          existing.displayRows += testRowsOnly;
+          currentPage.usedRows += testRowsOnly;
         }
       } else {
-        // Department not on current page
-        const groupHeaderAndTest = 1 + testRows;
+        // New department group - add 1 row for department header
+        const groupHeaderAndTest = 1 + testRowsOnly;
+        
+        // Check if this new group would fit
         if (currentPage.groups.length > 0 && currentPage.usedRows + groupHeaderAndTest > usableRows) {
           pushPage();
         }
+        
         const newGroup: PageGroup = { department, tests: [test], displayRows: groupHeaderAndTest };
         currentPage.groups.push(newGroup);
         currentPage.usedRows += groupHeaderAndTest;
@@ -132,12 +142,11 @@ const createReportPages = (testsByCategory: Record<string, VisitTest[]>) => {
 
   if (currentPage.groups.length > 0) pages.push(currentPage);
 
-  // Basic verification (dev-time console)
+  // Verification
   try {
     const totalTestsInPages = pages.reduce((s, p) => s + p.groups.reduce((gs, g) => gs + g.tests.length, 0), 0);
     const totalTestsOriginal = Object.values(testsByCategory).reduce((s, arr) => s + arr.length, 0);
     if (totalTestsInPages !== totalTestsOriginal) {
-      // Only console error — does not throw in production
       // eslint-disable-next-line no-console
       console.error('PAGINATION MISMATCH', { totalTestsOriginal, totalTestsInPages, pages });
     }
@@ -292,10 +301,406 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
   return (
     <>
       <style>{`
-        /* minimal print-friendly styles - app can override */
-        .report-page { background: #fff; box-sizing: border-box; }
+        /* CRITICAL: Perfect consistency across all OS & browsers */
+        
+        /* Reset & Base Consistency */
+        .report-page, .report-page * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
+        }
+        
+        .report-page {
+          background: #ffffff;
+          color: #000000;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+          font-size: 11px;
+          line-height: 1.4;
+          letter-spacing: 0;
+          word-spacing: 0;
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+          -moz-print-color-adjust: exact;
+          /* Flexbox for footer at bottom */
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 297mm;
+        }
+        
+        .report-page div { font-family: inherit; }
+        .report-page strong { font-weight: 700; font-family: inherit; }
+        .report-page table { font-family: inherit; border-spacing: 0; border-collapse: collapse; }
+        .report-page th, .report-page td { font-family: inherit; vertical-align: top; }
+        
+        /* Content wrapper - grows to fill available space */
+        .report-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          word-wrap: break-word;
+        }
+        
+        /* Header section */
+        .report-page-header {
+          margin: 25mm 0 10px 0;
+          border-bottom: 1px solid #cccccc;
+          padding: 0 0 8px 0;
+          line-height: 1.2;
+          font-size: 11px;
+        }
+        
+        .report-page-header div {
+          margin: 0;
+          padding: 0;
+          font-size: 11px;
+          line-height: 1.2;
+        }
+        
+        .report-page-header div:first-child {
+          margin-bottom: 6px;
+        }
+        
+        /* Department headers */
+        .report-department {
+          background: #eeeeee;
+          padding: 6px;
+          font-weight: 700;
+          text-transform: uppercase;
+          font-size: 11px;
+          margin-bottom: 8px;
+          line-height: 1.3;
+          color: #000000;
+        }
+        
+        /* Test tables */
+        .report-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 6px;
+          margin-bottom: 6px;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        
+        .report-table thead tr {
+          background: #f3f3f3;
+          border: none;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        
+        .report-table tbody {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        
+        /* Test wrapper - keep all parameters together */
+        .test-wrapper {
+          page-break-inside: avoid;
+          break-inside: avoid;
+          margin-top: 6px;
+          overflow: hidden;
+        }
+        
+        .report-table th {
+          text-align: left;
+          padding: 6px;
+          font-weight: 700;
+          font-size: 11px;
+          background: #f3f3f3;
+          color: #000000;
+          border: 1px solid #e0e0e0;
+          line-height: 1.3;
+          word-wrap: break-word;
+        }
+        
+        .report-table td {
+          padding: 6px;
+          font-size: 11px;
+          border: 1px solid #e0e0e0;
+          line-height: 1.3;
+          vertical-align: top;
+          word-wrap: break-word;
+          word-break: break-word;
+          overflow-wrap: break-word;
+          max-width: 100px;
+        }
+        
+        .report-table tbody tr:nth-child(odd) { background: #ffffff; }
+        .report-table tbody tr:nth-child(even) { background: #fafafa; }
+        .report-table .test-name { font-weight: 700; background: #fafafa; }
+        .report-table .section-heading { font-weight: 700; background: #f3f4f6; }
+        
+        /* Test result values */
+        .test-result-value {
+          text-align: center;
+          font-weight: 700;
+          font-size: 11px;
+          font-family: 'Courier New', monospace;
+          letter-spacing: 0.5px;
+        }
+        
+        .test-result-unit {
+          text-align: center;
+          font-size: 10px;
+        }
+        
+        .test-method {
+          font-size: 9px;
+          color: #555555;
+          margin-top: 2px;
+        }
+        
+        /* Barcode */
+        .barcode-container {
+          width: 120px;
+          height: auto;
+          display: flex;
+          align-items: flex-start;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .barcode-container svg {
+          width: 100%;
+          height: auto;
+          display: block;
+          max-width: 100%;
+        }
+        
+        /* Header grid */
+        .header-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          margin-top: 6px;
+          font-size: 11px;
+          gap: 4px;
+        }
+        
+        .header-grid div { line-height: 1.3; }
+        .header-grid strong { font-weight: 700; }
+        
+        /* Footer */
+        .report-page-footer {
+          border-top: 1px solid #cccccc;
+          margin-top: auto;
+          padding-top: 8px;
+          font-size: 11px;
+          line-height: 1.2;
+          flex-shrink: 0;
+        }
+        
+        .footer-signatures {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          gap: 8px;
+          margin-bottom: 8px;
+          min-height: 60px;
+        }
+        
+        .signature-block {
+          text-align: center;
+          flex: 1;
+          font-size: 11px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+        }
+        
+        .signature-image {
+          max-width: 90px;
+          max-height: 28px;
+          display: block;
+          margin: 0 auto 4px auto;
+          height: auto;
+        }
+        
+        .signature-line {
+          height: 1px;
+          border-bottom: 1px solid #666666;
+          margin-bottom: 4px;
+        }
+        
+        .signature-name {
+          font-weight: 700;
+          font-size: 10px;
+          margin: 0;
+          padding: 0;
+          line-height: 1.2;
+        }
+        
+        .signature-title {
+          font-size: 9px;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+          line-height: 1.2;
+        }
+        
+        .qr-block {
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          justify-content: flex-end;
+          flex: 0.8;
+          min-height: 60px;
+        }
+        
+        .qr-block img {
+          width: 48px;
+          height: 48px;
+          display: block;
+          image-rendering: pixelated;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .qr-text {
+          font-size: 8px;
+          color: #000000;
+          margin: 0;
+          padding: 0;
+          line-height: 1.2;
+        }
+        
+        .lab-tech {
+          text-align: right;
+          font-size: 10px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          flex: 0.8;
+          min-height: 60px;
+        }
+        
+        .lab-tech-name {
+          font-weight: 700;
+          font-size: 10px;
+          margin: 0;
+          padding: 0;
+          line-height: 1.2;
+        }
+        
+        .lab-tech-title {
+          font-size: 9px;
+          color: #333333;
+          margin: 0;
+          padding: 0;
+          line-height: 1.2;
+        }
+        
+        .footer-notes {
+          margin-top: 8px;
+          font-size: 10px;
+          line-height: 1.3;
+          border-top: 1px solid #e0e0e0;
+          padding-top: 6px;
+        }
+        
+        .footer-note-line {
+          margin: 2px 0;
+          padding: 0;
+          line-height: 1.3;
+        }
+        
+        .footer-note-critical {
+          font-weight: 700;
+          color: #000000;
+        }
+        
+        .page-number {
+          text-align: center;
+          margin-top: 6px;
+          font-size: 10px;
+          color: #666666;
+          line-height: 1.2;
+        }
+        
+        /* Print media - critical for consistency */
         @media print {
-          .report-page { page-break-after: always; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          
+          body { margin: 0; padding: 0; overflow: visible; }
+          
+          .report-page {
+            page-break-after: always;
+            break-after: page;
+            margin: 0;
+            padding: 12mm;
+            width: 210mm;
+            height: auto;
+            min-height: 297mm;
+            box-shadow: none;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          
+          .report-page-header {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          
+          .report-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            page-break-inside: auto;
+            break-inside: auto;
+          }
+          
+          .report-page-footer {
+            flex-shrink: 0;
+            margin-top: auto;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          
+          .report-page:last-child { page-break-after: avoid; break-after: avoid; }
+          
+          /* Prevent orphaning of tests and departments */
+          .report-department { 
+            page-break-inside: avoid; 
+            break-inside: avoid;
+            page-break-before: auto;
+            break-before: auto;
+          }
+          
+          .test-wrapper {
+            page-break-inside: avoid;
+            break-inside: avoid;
+            page-break-before: auto;
+            break-before: auto;
+          }
+          
+          .report-table { 
+            page-break-inside: avoid; 
+            break-inside: avoid;
+          }
+          
+          /* Image consistency */
+          .signature-image, .qr-block img { image-rendering: pixelated; }
+          img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+        
+        /* Screen display for preview */
+        @media screen {
+          .report-page {
+            border: 1px solid #ddd;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin: 8px auto;
+          }
         }
       `}</style>
 
@@ -309,79 +714,81 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
             padding: '12mm',
             margin: '0 auto',
             pageBreakAfter: pageIndex < reportPages.length - 1 ? 'always' : 'auto',
-            color: '#000',
-            background: '#fff'
+            color: '#000000',
+            background: '#ffffff',
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
           }}
         >
-          {/* Header */}
-          <div style={{ marginBottom: 8, borderBottom: '1px solid #ccc', paddingBottom: 6 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          {/* Header - 25mm top margin for pre-printed header */}
+          <div className="report-page-header">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 0, marginTop: 0, padding: 0 }}>
               <div>
-                <div><strong>Patient Name:</strong> {visit.patient?.name || 'N/A'}</div>
-                <div><strong>Age / Gender:</strong> {formatAge(visit.patient)} / {visit.patient?.sex || 'N/A'}</div>
-                <div><strong>Referred By:</strong> {doctorName}</div>
+                <div style={{ margin: 0, padding: 0 }}><strong>Patient Name:</strong> {visit.patient?.name || 'N/A'}</div>
+                <div style={{ margin: 0, padding: 0 }}><strong>Age / Gender:</strong> {formatAge(visit.patient)} / {visit.patient?.sex || 'N/A'}</div>
+                <div style={{ margin: 0, padding: 0 }}><strong>Referred By:</strong> {doctorName}</div>
               </div>
 
-              <div style={{ width: 120 }}>
+              <div className="barcode-container" style={{ margin: 0, padding: 0 }}>
                 <BarcodeComponent value={visit.visit_code || ''} />
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginTop: 6, fontSize: 12 }}>
-              <div><strong>Visit Id</strong><div>{visit.visit_code}</div></div>
-              <div><strong>Sample Drawn</strong><div>{formatDate(sampleDrawnDate)}</div></div>
-              <div><strong>Registration</strong><div>{formatDate(visit.created_at)}</div></div>
-              <div><strong>Reported</strong><div>{formatDate(reportedDate)}</div></div>
+            <div className="header-grid" style={{ marginTop: 8 }}>
+              <div><strong>Visit Id</strong><div style={{ marginTop: 2 }}>{visit.visit_code}</div></div>
+              <div><strong>Sample Drawn</strong><div style={{ marginTop: 2 }}>{formatDate(sampleDrawnDate)}</div></div>
+              <div><strong>Registration</strong><div style={{ marginTop: 2 }}>{formatDate(visit.created_at)}</div></div>
+              <div><strong>Reported</strong><div style={{ marginTop: 2 }}>{formatDate(reportedDate)}</div></div>
             </div>
           </div>
 
-          {/* Page content groups */}
+          {/* Content wrapper - grows to fill available space */}
+          <div className="report-content">
           {page.groups.map((group, gi) => (
             <div key={`${pageIndex}-${gi}`} style={{ marginBottom: 8 }}>
-              <div style={{ background: '#eee', padding: 6, fontWeight: 700, textTransform: 'uppercase' }}>{group.department}</div>
+              <div className="report-department">{group.department}</div>
 
               {group.tests.map((test) => (
-                <div key={test.id} style={{ marginTop: 6 }}>
+                <div key={test.id} className="test-wrapper">
                   {isCultureTest(test) ? (
                     <div>
                       <MicrobiologyReportDisplay test={test} visit={visit} />
                     </div>
                   ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 6 }}>
+                    <table className="report-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', width: '40%', padding: 6, background: '#f3f3f3' }}>Test Description</th>
-                          <th style={{ textAlign: 'center', width: '15%', padding: 6, background: '#f3f3f3' }}>Result</th>
-                          <th style={{ textAlign: 'center', width: '15%', padding: 6, background: '#f3f3f3' }}>Units</th>
-                          <th style={{ textAlign: 'left', width: '30%', padding: 6, background: '#f3f3f3' }}>Biological Reference Range</th>
+                          <th style={{ width: '40%' }}>Test Description</th>
+                          <th style={{ width: '15%', textAlign: 'center' }}>Result</th>
+                          <th style={{ width: '15%', textAlign: 'center' }}>Units</th>
+                          <th style={{ width: '30%' }}>Biological Reference Range</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr style={{ fontWeight: 700, background: '#fafafa' }}>
-                          <td colSpan={4} style={{ padding: 8 }}>{test.template?.name}{test.specimen_type ? ` (Specimen: ${test.specimen_type})` : ''}</td>
+                        <tr className="test-name">
+                          <td colSpan={4}>{test.template?.name}{test.specimen_type ? ` (Specimen: ${test.specimen_type})` : ''}</td>
                         </tr>
 
                         {test.template?.parameters?.fields && test.template.parameters.fields.length > 0 ? (
                           test.template.parameters.fields.map((param: any, idx: number) => (
                             param.type === 'heading' ? (
-                              <tr key={`heading-${test.id}-${idx}`} style={{ background: '#f3f4f6' }}>
-                                <td colSpan={4} style={{ fontWeight: 700, padding: 6 }}>{param.name}</td>
+                              <tr key={`heading-${test.id}-${idx}`} className="section-heading">
+                                <td colSpan={4}>{param.name}</td>
                               </tr>
                             ) : (
-                              <tr key={`${test.id}-${param.name}`} >
-                                <td style={{ padding: 6 }}>
-                                  <div style={{ fontSize: 11 }}>{param.name}</div>
-                                  {param.method && <div style={{ fontSize: 9, color: '#555' }}>({param.method})</div>}
+                              <tr key={`${test.id}-${param.name}`}>
+                                <td>
+                                  <div>{param.name}</div>
+                                  {param.method && <div className="test-method">{param.method}</div>}
                                 </td>
-                                <td style={{ textAlign: 'center', fontWeight: 700 }}>{String(test.results?.[param.name] ?? '-')}</td>
-                                <td style={{ textAlign: 'center' }}>{param.unit ?? ''}</td>
-                                <td style={{ padding: 6 }}>{param.reference_range ?? ''}</td>
+                                <td className="test-result-value">{String(test.results?.[param.name] ?? '-')}</td>
+                                <td className="test-result-unit">{param.unit ?? ''}</td>
+                                <td>{param.reference_range ?? ''}</td>
                               </tr>
                             )
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={4} style={{ textAlign: 'center', padding: 6 }}>No parameters</td>
+                            <td colSpan={4} style={{ textAlign: 'center' }}>No parameters</td>
                           </tr>
                         )}
                       </tbody>
@@ -391,52 +798,56 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
               ))}
             </div>
           ))}
+          </div>
 
-          {/* Footer area */}
-          <div style={{ borderTop: '1px solid #ccc', marginTop: 8, paddingTop: 6, fontSize: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          {/* Footer area - always at bottom */}
+          <div className="report-page-footer">
+            <div className="footer-signatures">
               {approvers.length > 0 ? (
                 approvers.map((a, idx) => (
-                  <div key={a.id} style={{ textAlign: 'center', flex: 1 }}>
+                  <div key={a.id} className="signature-block">
                     {a.signature_image_url ? (
-                      <img src={`${IMAGE_BASE_URL}${a.signature_image_url}`} alt="signature" style={{ maxWidth: 90, maxHeight: 28 }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                      <img 
+                        src={`${IMAGE_BASE_URL}${a.signature_image_url}`} 
+                        alt="signature" 
+                        className="signature-image"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} 
+                      />
                     ) : (
-                      <div style={{ height: 20, borderBottom: '1px solid #666', marginBottom: 4 }} />
+                      <div className="signature-line" />
                     )}
-                    <div style={{ fontWeight: 700, fontSize: 11 }}>{a.name}</div>
-                    <div style={{ fontSize: 10 }}>{a.title}</div>
+                    <div className="signature-name">{a.name}</div>
+                    <div className="signature-title">{a.title}</div>
                   </div>
                 ))
               ) : (
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ height: 20, borderBottom: '1px solid #666', marginBottom: 4 }} />
-                  <div style={{ fontWeight: 700 }}>Lab Director</div>
-                  <div style={{ fontSize: 10 }}>Pathologist</div>
+                <div className="signature-block">
+                  <div className="signature-line" />
+                  <div className="signature-name">Lab Director</div>
+                  <div className="signature-title">Pathologist</div>
                 </div>
               )}
 
               {visit.qr_code && (
-                <div style={{ textAlign: 'center', marginLeft: 12 }}>
-                  <div style={{ width: 48, height: 48 }}>
-                    <img src={visit.qr_code} alt="qr" style={{ width: '100%', height: '100%' }} />
-                  </div>
-                  <div style={{ fontSize: 9 }}>Scan to verify</div>
+                <div className="qr-block">
+                  <img src={visit.qr_code} alt="qr" />
+                  <div className="qr-text">Scan to verify</div>
                 </div>
               )}
 
-              <div style={{ width: 120, textAlign: 'right' }}>
-                <div style={{ fontSize: 10, fontWeight: 700 }}>{firstTest.enteredBy || 'N/A'}</div>
-                <div style={{ fontSize: 9 }}>Lab Technician</div>
+              <div className="lab-tech">
+                <div className="lab-tech-name">{firstTest.enteredBy || 'N/A'}</div>
+                <div className="lab-tech-title">Lab Technician</div>
               </div>
             </div>
 
-            <div style={{ marginTop: 6, fontSize: 10 }}>
-              <div>Assay result should be correlated clinically with other laboratory finding and the total clinical status of the patient.</div>
-              <div>Note :- This Report is subject to the terms and conditions mentioned overleaf</div>
-              <div style={{ fontWeight: 700 }}>Note :- PARTIAL REPRODUCTION OF THIS REPORT IS NOT PERMITTED</div>
+            <div className="footer-notes">
+              <div className="footer-note-line">Assay result should be correlated clinically with other laboratory finding and the total clinical status of the patient.</div>
+              <div className="footer-note-line">Note :- This Report is subject to the terms and conditions mentioned overleaf</div>
+              <div className="footer-note-line footer-note-critical">Note :- PARTIAL REPRODUCTION OF THIS REPORT IS NOT PERMITTED</div>
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: 6, fontSize: 11 }}>Page {pageIndex + 1} of {reportPages.length}</div>
+            <div className="page-number">Page {pageIndex + 1} of {reportPages.length}</div>
           </div>
         </div>
       ))}
