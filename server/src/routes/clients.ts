@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import pool from '../db/connection.js';
 import bcrypt from 'bcryptjs';
 import { createAuditLog } from '../middleware/auditLogger.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, requirePermission } from '../middleware/auth.js';
 import {
   validateClientLedger,
   validateAllLedgers,
@@ -375,7 +375,7 @@ router.post('/:id/settle', async (req: Request, res: Response) => {
 });
 
 // Set up client login credentials
-router.post('/:id/setup-login', async (req: Request, res: Response) => {
+router.post('/:id/setup-login', requirePermission(['MANAGE_B2B']), async (req: Request, res: Response) => {
   try {
     const { password } = req.body;
     const clientId = req.params.id;
@@ -448,7 +448,7 @@ router.get('/:id/login-status', async (req: Request, res: Response) => {
 });
 
 // Disable client login
-router.post('/:id/disable-login', async (req: Request, res: Response) => {
+router.post('/:id/disable-login', requirePermission(['MANAGE_B2B']), async (req: Request, res: Response) => {
   try {
     const clientId = req.params.id;
 

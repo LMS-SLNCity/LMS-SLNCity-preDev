@@ -5,6 +5,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginScreen } from './components/LoginScreen';
 import { MainLayout } from './components/MainLayout';
 import { PublicReportView } from './components/PublicReportView';
+import { Landing } from './components/Landing';
+import TestMenuPage from './components/TestMenuPage';
+import { ContactPage } from './components/ContactPage';
 
 
 const AppContent: React.FC = () => {
@@ -12,11 +15,22 @@ const AppContent: React.FC = () => {
     const location = useLocation();
 
     // Check if current route is public (doesn't require authentication)
-    const isPublicRoute = location.pathname.startsWith('/verify-report/');
+    const isPublicRoute = location.pathname.startsWith('/verify-report/') || location.pathname === '/test-menu' || location.pathname === '/tests' || location.pathname === '/contact';
 
     // If it's a public route, render it directly without authentication
     if (isPublicRoute) {
-        return <PublicReportView />;
+      if (location.pathname === '/test-menu' || location.pathname === '/tests') {
+        return <TestMenuPage />;
+      }
+      if (location.pathname === '/contact') {
+        return <ContactPage />;
+      }
+      return <PublicReportView />;
+    }
+
+    // Show landing page for unauthenticated users at root
+    if (!isLoading && !user && location.pathname === '/') {
+        return <Landing />;
     }
 
     // Show loading state while restoring session

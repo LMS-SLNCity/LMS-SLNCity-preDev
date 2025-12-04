@@ -31,6 +31,7 @@ import b2bFinancialRoutes from './routes/b2bFinancial.js';
 import waiversRoutes from './routes/waivers.js';
 import unitsRoutes from './routes/units.js';
 import publicReportsRoutes from './routes/publicReports.js';
+import testInquiriesRoutes from './routes/testInquiries.js';
 import { initializeCleanupScheduler } from './services/auditLogCleanup.js';
 
 dotenv.config();
@@ -144,8 +145,8 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for health checks
-    return req.path === '/health';
+    // Skip rate limiting for health checks and public test templates
+    return req.path === '/health' || req.path === '/api/public/test-templates';
   },
   handler: (req, res) => {
     console.warn(`⚠️  API rate limit exceeded for IP: ${req.ip} on ${req.path}`);
@@ -170,12 +171,27 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Public endpoint for test templates (for landing page) - BEFORE rate limiter  
+app.get('/api/public/test-templates', (req, res) => {
+  console.log('✅ GET /api/public/test-templates - Request received');
+  res.json([
+    { id: 1, name: 'Complete Blood Count', category: 'HEMATOLOGY' },
+    { id: 2, name: 'Liver Function Test', category: 'BIOCHEMISTRY' },
+    { id: 3, name: 'Renal Function Test', category: 'BIOCHEMISTRY' },
+    { id: 4, name: 'Lipid Profile', category: 'BIOCHEMISTRY' },
+    { id: 5, name: 'Thyroid Profile', category: 'BIOCHEMISTRY' },
+    { id: 6, name: 'Urine Routine', category: 'CLINICAL PATHOLOGY' },
+    { id: 7, name: 'Urine Culture & Sensitivity', category: 'MICROBIOLOGY' },
+  ]);
+});
+
 // Apply general API rate limiting to all /api routes
 app.use('/api', apiLimiter);
 
 // Routes
 // Public routes (no authentication required)
 app.use('/api/public/reports', publicReportsRoutes);
+app.use('/api/test-inquiries', testInquiriesRoutes); // Public POST, protected GET/PATCH
 
 // Auth routes (no auth middleware needed - handles its own auth)
 // TEMPORARILY DISABLED RATE LIMITER FOR DEBUGGING
