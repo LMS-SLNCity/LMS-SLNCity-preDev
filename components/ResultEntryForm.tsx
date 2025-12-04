@@ -134,7 +134,7 @@ const StandardResultForm: React.FC<{ test: VisitTest, onClose: () => void, isEdi
                     ) : (
                         <p className="text-sm text-center text-gray-500 py-4">This test does not require detailed parameter entry. You can add remarks if needed.</p>
                     )}
-                     <Input label="Remarks (Optional)" name="remarks" />
+                     <Input label="Remarks (Optional)" name="remarks" value={String(results['remarks'] || '')} onChange={handleChange} />
                 </div>
             </div>
             <div className="bg-gray-50 px-6 py-4 flex justify-end items-center space-x-3 rounded-b-xl">

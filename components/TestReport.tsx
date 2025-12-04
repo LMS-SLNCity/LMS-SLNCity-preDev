@@ -407,6 +407,18 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
           overflow: hidden;
         }
         
+        /* Remarks displayed under test tables when present */
+        .test-remarks {
+          margin-top: 6px;
+          font-size: 11px;
+          color: #222222;
+          line-height: 1.25;
+          padding: 6px;
+          background: #fbfbfb;
+          border-left: 3px solid #e6e6e6;
+          word-wrap: break-word;
+          white-space: pre-wrap;
+        }
         .report-table th {
           text-align: left;
           padding: 6px;
@@ -754,6 +766,7 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
                       <MicrobiologyReportDisplay test={test} visit={visit} />
                     </div>
                   ) : (
+                    <>
                     <table className="report-table">
                       <thead>
                         <tr>
@@ -793,6 +806,33 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
                         )}
                       </tbody>
                     </table>
+                    {/* Print remarks for non-culture tests. If there are no parameters, allow pathologist interpretations stored in results */}
+                    {(() => {
+                      const noParameters = !test.template?.parameters?.fields || test.template?.parameters?.fields.length === 0;
+                      const r: any = test.results || {};
+                      // Prefer explicit keys
+                      const explicit = r.remarks || r.remark || r.interpretation || r.interpretations;
+                      let remarkContent: string | null = null;
+                      if (explicit && String(explicit).trim().length > 0) remarkContent = String(explicit);
+
+                      if (!remarkContent && noParameters) {
+                        // Fallback: gather any string values from results
+                        const vals = Object.values(r).filter(v => typeof v === 'string' && String(v).trim().length > 0);
+                        if (vals.length > 0) remarkContent = vals.join('\n');
+                      }
+
+                      if (remarkContent) {
+                        return (
+                          <div className="test-remarks">
+                            <strong>Remarks:</strong>
+                            <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{remarkContent}</div>
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })()}
+                    </>
                   )}
                 </div>
               ))}
