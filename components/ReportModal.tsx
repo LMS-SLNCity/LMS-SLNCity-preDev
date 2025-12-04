@@ -32,11 +32,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visit, signatory, onCl
         return;
       }
 
-      // Create PDF
+      // Create PDF with consistent settings
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
+        compress: false, // Disable compression for consistency
+        precision: 2,
       });
 
       // Process each page
@@ -52,22 +54,33 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visit, signatory, onCl
         tempContainer.style.left = '-9999px';
         tempContainer.style.width = '210mm';
         tempContainer.style.height = '297mm';
+        tempContainer.style.margin = '0';
+        tempContainer.style.padding = '0';
         tempContainer.appendChild(clonedPage);
         document.body.appendChild(tempContainer);
 
-        // Force the cloned page to exact A4 size
+        // Force the cloned page to exact A4 size with consistent rendering
         clonedPage.style.width = '210mm';
         clonedPage.style.height = '297mm';
         clonedPage.style.display = 'flex';
         clonedPage.style.flexDirection = 'column';
+        clonedPage.style.margin = '0';
+        clonedPage.style.padding = '12mm';
+        clonedPage.style.boxSizing = 'border-box';
+        clonedPage.style.fontSize = '11px';
+        clonedPage.style.lineHeight = '1.4';
+        clonedPage.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 
-        // Create canvas from the cloned page
+        // Create canvas from the cloned page with high DPI for consistency
         const canvas = await html2canvas(clonedPage, {
-          scale: 2,
+          scale: 3, // Increased from 2 for better quality and consistency
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
           allowTaint: true,
+          imageTimeout: 0,
+          windowWidth: 794, // A4 width in pixels at 96 DPI
+          windowHeight: 1122, // A4 height in pixels at 96 DPI
         });
 
         // Remove temporary container
@@ -83,7 +96,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visit, signatory, onCl
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         const pdfHeight = 297; // A4 height in mm
 
-        // Fit image to page
+        // Fit image to page with proper scaling
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, Math.min(imgHeight, pdfHeight));
       }
 
@@ -151,11 +164,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visit, signatory, onCl
         return;
       }
 
-      // Create PDF
+      // Create PDF with consistent settings
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
+        compress: false, // Disable compression for consistency
+        precision: 2,
       });
 
       // Process each page
@@ -171,22 +186,33 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visit, signatory, onCl
         tempContainer.style.left = '-9999px';
         tempContainer.style.width = '210mm';
         tempContainer.style.height = '297mm';
+        tempContainer.style.margin = '0';
+        tempContainer.style.padding = '0';
         tempContainer.appendChild(clonedPage);
         document.body.appendChild(tempContainer);
 
-        // Force the cloned page to exact A4 size
+        // Force the cloned page to exact A4 size with consistent rendering
         clonedPage.style.width = '210mm';
         clonedPage.style.height = '297mm';
         clonedPage.style.display = 'flex';
         clonedPage.style.flexDirection = 'column';
+        clonedPage.style.margin = '0';
+        clonedPage.style.padding = '12mm';
+        clonedPage.style.boxSizing = 'border-box';
+        clonedPage.style.fontSize = '11px';
+        clonedPage.style.lineHeight = '1.4';
+        clonedPage.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 
-        // Create canvas from the cloned page
+        // Create canvas from the cloned page with high DPI for consistency
         const canvas = await html2canvas(clonedPage, {
-          scale: 2,
+          scale: 3, // Increased from 2 for better quality and consistency
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
           allowTaint: true,
+          imageTimeout: 0,
+          windowWidth: 794, // A4 width in pixels at 96 DPI
+          windowHeight: 1122, // A4 height in pixels at 96 DPI
         });
 
         // Remove temporary container
@@ -202,7 +228,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visit, signatory, onCl
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         const pdfHeight = 297; // A4 height in mm
 
-        // Fit image to page
+        // Fit image to page with proper scaling
         pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, Math.min(imgHeight, pdfHeight));
       }
 

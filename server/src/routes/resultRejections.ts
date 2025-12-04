@@ -130,8 +130,6 @@ router.post('/', async (req: Request, res: Response) => {
              approved_at = NULL,
              results = NULL,
              culture_result = NULL,
-             entered_by = NULL,
-             entered_at = NULL,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
         [visit_test_id]

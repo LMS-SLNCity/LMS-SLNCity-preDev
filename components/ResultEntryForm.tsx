@@ -109,6 +109,24 @@ const StandardResultForm: React.FC<{ test: VisitTest, onClose: () => void, isEdi
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">Patient: {test.patientName} ({test.visitCode})</p>
                 {isEditMode && <p className="text-sm text-yellow-700 bg-yellow-100 p-2 rounded-md mt-2">Reason for edit: {editReason}</p>}
+                
+                {/* Show rejection history if any */}
+                {test.rejection_count && test.rejection_count > 0 && (
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-sm font-medium text-red-800">
+                            ⚠️ This test has been rejected {test.rejection_count} time(s)
+                        </p>
+                        {test.last_rejection_at && (
+                            <p className="text-xs text-red-700 mt-1">
+                                Last rejected: {new Date(test.last_rejection_at).toLocaleString()}
+                            </p>
+                        )}
+                        <p className="text-xs text-red-700 mt-2">
+                            Please review the results carefully before submitting.
+                        </p>
+                    </div>
+                )}
+                
                 {/* Add scrollbar for tests with many fields */}
                 <div className="mt-6 space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                     {test.template.parameters?.fields && test.template.parameters.fields.length > 0 ? (
@@ -232,7 +250,25 @@ const CultureResultForm: React.FC<{ test: VisitTest, onClose: () => void, isEdit
             <div className="p-6">
                 <h3 className="text-xl font-bold text-gray-900">{isEditMode ? 'Edit' : 'Enter'} Results for {test.template.name}</h3>
                 <p className="text-sm text-gray-500 mt-1">Patient: {test.patientName} ({test.visitCode})</p>
-                 {isEditMode && <p className="text-sm text-yellow-700 bg-yellow-100 p-2 rounded-md mt-2">Reason for edit: {editReason}</p>}
+                {isEditMode && <p className="text-sm text-yellow-700 bg-yellow-100 p-2 rounded-md mt-2">Reason for edit: {editReason}</p>}
+                
+                {/* Show rejection history if any */}
+                {test.rejection_count && test.rejection_count > 0 && (
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-sm font-medium text-red-800">
+                            ⚠️ This test has been rejected {test.rejection_count} time(s)
+                        </p>
+                        {test.last_rejection_at && (
+                            <p className="text-xs text-red-700 mt-1">
+                                Last rejected: {new Date(test.last_rejection_at).toLocaleString()}
+                            </p>
+                        )}
+                        <p className="text-xs text-red-700 mt-2">
+                            Please review the results carefully before submitting.
+                        </p>
+                    </div>
+                )}
+                
                 {/* Add scrollbar for culture tests with many antibiotics */}
                 <div className="mt-6 space-y-4 border-t pt-4 max-h-[60vh] overflow-y-auto pr-2">
                     <div className="flex items-center space-x-4">
