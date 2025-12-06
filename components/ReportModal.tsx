@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Visit, Signatory, VisitTest } from '../types';
 import { TestReport } from './TestReport';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,69 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visit, signatory, onCl
   const { hasPermission } = useAuth();
   const { invalidateCache } = useAppContext();
   const [isExporting, setIsExporting] = useState(false);
+  const [visitTests, setVisitTests] = useState<VisitTest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load visit tests when modal opens
+  useEffect(() => {
+    const loadTests = async () => {
+      try {
+        setLoading(true);
+        // Add a small delay to ensure approval has been persisted
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const token = sessionStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/visit-tests`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const tests = await response.json();
+          console.log('DEBUG ReportModal: Fetched tests:', tests.length, 'tests');
+          setVisitTests(tests);
+        } else {
+          console.error('Failed to fetch visit tests:', response.status);
+          setError('Failed to load test data');
+        }
+      } catch (err) {
+        console.error('Error loading tests:', err);
+        setError('Error loading test data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTests();
+  }, [visit.id]);
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="text-center mt-4 text-gray-600">Loading report...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-8 max-w-md">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handlePrint = async () => {
     try {
@@ -298,7 +361,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visit, signatory, onCl
         </div>
         <div className="p-4 sm:p-8">
           <div id="test-report-content">
-            <TestReport visit={visit} signatory={signatory} canEdit={canEditReport} onEdit={onEdit} />
+            {console.log('DEBUG ReportModal: About to render TestReport with:', {
+              visitId: visit.id,
+              visitTestIds: visit.tests,
+              visitTestsCount: visitTests.length,
+              visitTestsStatuses: visitTests.map(vt => ({ id: vt.id, status: vt.status }))
+            })}
+            <TestReport visit={visit} signatory={signatory} canEdit={canEditReport} onEdit={onEdit} visitTests={visitTests} />
           </div>
         </div>
       </div>

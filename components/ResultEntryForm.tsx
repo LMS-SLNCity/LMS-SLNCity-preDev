@@ -149,7 +149,154 @@ const StandardResultForm: React.FC<{ test: VisitTest, onClose: () => void, isEdi
     )
 }
 
-const CultureResultForm: React.FC<{ test: VisitTest, onClose: () => void, isEditMode?: boolean, editReason?: string }> = ({ test, onClose, isEditMode = false, editReason }) => {
+const FluidResultForm: React.FC<{ test: VisitTest, onClose: () => void, isEditMode?: boolean, editReason?: string }> = ({ test, onClose, isEditMode = false, editReason }) => {
+  const { addTestResult, editTestResult } = useAppContext();
+  const { user } = useAuth();
+  const [results, setResults] = useState<Record<string, string | number>>(test.results || {});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setResults(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!user) {
+      alert('User session has expired. Please log in again.');
+      return;
+    }
+    if (!isEditMode && test.status !== 'SAMPLE_COLLECTED') {
+      alert(`Cannot enter results. Test status is ${test.status}. Only SAMPLE_COLLECTED tests can have results entered.`);
+      return;
+    }
+    if (!results.observation || String(results.observation).trim().length === 0) {
+      alert('Please add a primary observation/description before submitting.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (isEditMode) {
+        if (!editReason) {
+          alert('Cannot save edit without a reason.');
+          return;
+        }
+        await editTestResult(test.id, { results }, editReason, user);
+      } else {
+        await addTestResult(test.id, { results }, user);
+      }
+      onClose();
+    } catch (error) {
+      console.error('Error submitting results:', error);
+      alert('Failed to submit results. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Get sidebar sections from template
+  const sidebarSections = (test.template.parameters?.fields || []).filter((f: any) => f.type === 'section');
+  const headingSections = (test.template.parameters?.fields || []).filter((f: any) => f.type === 'heading');
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="p-6 space-y-4">
+        <div>
+          <h3 className="text-xl font-bold text-gray-900" id="modal-title">
+            {isEditMode ? 'Edit' : 'Enter'} Findings for {test.template.name}
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">Patient: {test.patientName} ({test.visitCode})</p>
+          {isEditMode && <p className="text-sm text-yellow-700 bg-yellow-100 p-2 rounded-md mt-2">Reason for edit: {editReason}</p>}
+        </div>
+
+        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+          
+          {/* Sidebar section analysis fields */}
+          {sidebarSections.length > 0 && (
+            <div className="space-y-4">
+              <div className="text-sm font-semibold text-gray-700 border-b pb-2">Analysis Sections</div>
+              {sidebarSections.map((section: any) => (
+                <div key={section.name} className="border-l-4 border-blue-400 bg-blue-50 p-4 rounded-r-lg">
+                  <label className="block text-sm font-bold text-blue-900 mb-2">{section.name}</label>
+                  {section.subtitle && <p className="text-xs text-blue-700 mb-2">{section.subtitle}</p>}
+                  <textarea
+                    name={section.name}
+                    rows={4}
+                    value={String(results[section.name] || '')}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    placeholder={`Enter analysis for ${section.name.toLowerCase()}`}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Heading sections - just display as dividers */}
+          {headingSections.length > 0 && (
+            <div className="space-y-3 mt-4">
+              {headingSections.map((heading: any) => (
+                <div key={heading.name} className="mt-6 pt-3 border-t-2 border-gray-400">
+                  <h4 className="text-sm font-bold text-gray-800">{heading.name}</h4>
+                  {heading.subtitle && <p className="text-xs text-gray-600 italic mt-1">{heading.subtitle}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Primary observation field */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-800 mb-2 border-t pt-3">Primary Observation / Summary</label>
+            <textarea
+              name="observation"
+              rows={5}
+              value={String(results.observation || '')}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary text-sm"
+              placeholder="Enter main findings, summary of analysis, or overall observations"
+              required
+            />
+          </div>
+
+          {/* Clinical notes field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Clinical Notes (Optional)</label>
+            <textarea
+              name="notes"
+              rows={3}
+              value={String(results.notes || '')}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary text-sm"
+              placeholder="Additional clinical context, patient history, or relevant notes"
+            />
+          </div>
+
+          {/* Remarks field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Remarks (Optional)</label>
+            <textarea
+              name="remarks"
+              rows={2}
+              value={String(results.remarks || '')}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-primary focus:border-brand-primary text-sm"
+              placeholder="Any additional comments or interpretations"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="bg-gray-50 px-6 py-4 flex justify-end items-center space-x-3 rounded-b-xl">
+        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+          Cancel
+        </button>
+        <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed">
+          {isSubmitting ? '⏳ Submitting...' : (isEditMode ? 'Save Changes' : 'Submit for Approval')}
+        </button>
+      </div>
+    </form>
+  );
+};const CultureResultForm: React.FC<{ test: VisitTest, onClose: () => void, isEditMode?: boolean, editReason?: string }> = ({ test, onClose, isEditMode = false, editReason }) => {
     const { addTestResult, editTestResult, antibiotics } = useAppContext();
     const { user } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -344,14 +491,17 @@ const CultureResultForm: React.FC<{ test: VisitTest, onClose: () => void, isEdit
 };
 
 export const ResultEntryForm: React.FC<ResultEntryFormProps> = ({ test, onClose, isEditMode = false, editReason }) => {
-  const isCultureTest = test.template.reportType === 'culture';
+    const isCultureTest = test.template.reportType === 'culture';
+    const isFluidTest = test.template.reportType === 'fluid';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg transform transition-all max-h-[90vh] flex flex-col">
         {isCultureTest 
             ? <CultureResultForm test={test} onClose={onClose} isEditMode={isEditMode} editReason={editReason} />
-            : <StandardResultForm test={test} onClose={onClose} isEditMode={isEditMode} editReason={editReason} />
+                        : isFluidTest
+                            ? <FluidResultForm test={test} onClose={onClose} isEditMode={isEditMode} editReason={editReason} />
+                            : <StandardResultForm test={test} onClose={onClose} isEditMode={isEditMode} editReason={editReason} />
         }
       </div>
     </div>

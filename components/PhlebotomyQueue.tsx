@@ -77,8 +77,31 @@ export const PhlebotomyQueue: React.FC<PhlebotomyQueueProps> = ({ onInitiateRepo
   // Apply date filter first, then status filter
   const dateFilteredTests = filterByDate(visitTests, dateFilter, customStartDate, customEndDate);
 
-  // Pending samples - show ALL pending regardless of date filter
-  const allPendingSamples = visitTests.filter(test => test.status === 'PENDING');
+  // Get B2B visits that are still pending reception approval
+  const b2bPendingApprovalVisitIds = new Set(
+    visits
+      .filter((v: Visit) => v.b2b_pending_approval === true)
+      .map((v: Visit) => v.id)
+  );
+
+  console.log('🔍 PhlebotomyQueue: B2B visits pending reception approval:', b2bPendingApprovalVisitIds.size, Array.from(b2bPendingApprovalVisitIds));
+
+  // Pending samples - show ALL pending EXCEPT those from B2B visits awaiting reception approval
+  const allPendingSamples = visitTests.filter(test => {
+    if (test.status !== 'PENDING') return false;
+    
+    // Find the visit for this test
+    const visit = visits.find((v: Visit) => v.tests?.includes(test.id));
+    
+    // Exclude if this test belongs to a B2B visit awaiting reception approval
+    if (visit && b2bPendingApprovalVisitIds.has(visit.id)) {
+      console.log(`⏸️  Excluding test ${test.id} from phlebotomy: B2B visit ${visit.id} awaiting reception approval`);
+      return false;
+    }
+    
+    return true;
+  });
+
   // Rejected samples - show ALL rejected regardless of date filter (high priority!)
   const allRejectedSamples = visitTests.filter(test => test.status === 'REJECTED').sort((a, b) => new Date(b.last_rejection_at!).getTime() - new Date(a.last_rejection_at!).getTime());
   const allCancelledSamples = dateFilteredTests.filter(test => test.status === 'CANCELLED').sort((a, b) => new Date(b.updated_at!).getTime() - new Date(a.updated_at!).getTime());

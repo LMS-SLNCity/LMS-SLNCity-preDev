@@ -32,6 +32,7 @@ import waiversRoutes from './routes/waivers.js';
 import unitsRoutes from './routes/units.js';
 import publicReportsRoutes from './routes/publicReports.js';
 import testInquiriesRoutes from './routes/testInquiries.js';
+import locationsRoutes from './routes/locations.js';
 import { initializeCleanupScheduler } from './services/auditLogCleanup.js';
 
 dotenv.config();
@@ -192,6 +193,7 @@ app.use('/api', apiLimiter);
 // Public routes (no authentication required)
 app.use('/api/public/reports', publicReportsRoutes);
 app.use('/api/test-inquiries', testInquiriesRoutes); // Public POST, protected GET/PATCH
+app.use('/api', locationsRoutes);
 
 // Auth routes (no auth middleware needed - handles its own auth)
 // TEMPORARILY DISABLED RATE LIMITER FOR DEBUGGING

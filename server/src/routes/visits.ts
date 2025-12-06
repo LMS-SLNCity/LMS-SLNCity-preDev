@@ -16,7 +16,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 
     // Security: If user is a B2B_CLIENT, filter visits to only show their own
     let query = `SELECT v.id, v.patient_id, v.referred_doctor_id, v.ref_customer_id, v.other_ref_doctor, v.other_ref_customer,
-              v.registration_datetime, v.visit_code, v.total_cost, v.amount_paid, v.payment_mode, v.due_amount, v.created_at,
+          v.registration_datetime, v.visit_code, v.total_cost, v.amount_paid, v.payment_mode, v.due_amount, v.created_at, v.b2b_pending_approval,
               p.salutation, p.name, p.age_years, p.age_months, p.age_days, p.sex, p.phone, p.address, p.email, p.clinical_history,
               c.id as client_id, c.name as client_name, c.type as client_type, c.balance as client_balance,
               rd.name as referred_doctor_name, rd.designation as referred_doctor_designation
@@ -26,6 +26,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
        LEFT JOIN referral_doctors rd ON v.referred_doctor_id = rd.id`;
 
     const queryParams: any[] = [];
+    const whereClauses: string[] = [];
 
     if (user && user.role === 'B2B_CLIENT') {
       const userClientId = (user as any).clientId;
@@ -35,9 +36,26 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
       }
 
       // Filter to only show visits for this B2B client
-      query += ` WHERE v.ref_customer_id = $1`;
+      whereClauses.push(`v.ref_customer_id = $${whereClauses.length + 1}`);
       queryParams.push(userClientId);
       console.log(`🔒 B2B Client ${userClientId} accessing their visits only`);
+    } else if (user && user.role !== 'SUDO') {
+      // For non-SUDO, non-B2B staff: filter by their assigned location
+      if (user.location_id !== null && user.location_id !== undefined) {
+        whereClauses.push(`(v.location_id = $${whereClauses.length + 1} OR v.location_id IS NULL)`);
+        queryParams.push(user.location_id);
+        console.log(`📍 User ${user.id} accessing visits for location ${user.location_id}`);
+      }
+    }
+    // SUDO users see all visits (no WHERE clause needed)
+
+    // Optional filter: only B2B pending approvals
+    if (req.query.b2b_pending === 'true') {
+      whereClauses.push(`v.b2b_pending_approval = TRUE`);
+    }
+
+    if (whereClauses.length > 0) {
+      query += ' WHERE ' + whereClauses.join(' AND ');
     }
 
     query += ` ORDER BY v.created_at DESC`;
@@ -46,16 +64,26 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 
     // Get all test IDs for all visits in one query
     const testsResult = await pool.query(
-      `SELECT visit_id, id FROM visit_tests ORDER BY visit_id, id`
+      `SELECT vt.visit_id, vt.id, vt.status, tt.name, tt.code
+       FROM visit_tests vt
+       JOIN test_templates tt ON vt.test_template_id = tt.id
+       ORDER BY vt.visit_id, vt.id`
     );
 
-    // Create a map of visit_id -> test_ids
-    const testsByVisit: Record<number, number[]> = {};
+    // Create a map of visit_id -> tests with status and template info
+    const testsByVisit: Record<number, any[]> = {};
     testsResult.rows.forEach(row => {
       if (!testsByVisit[row.visit_id]) {
         testsByVisit[row.visit_id] = [];
       }
-      testsByVisit[row.visit_id].push(row.id);
+      testsByVisit[row.visit_id].push({
+        id: row.id,
+        status: row.status,
+        template: {
+          name: row.name,
+          code: row.code,
+        },
+      });
     });
 
     // Generate QR codes for all visits
@@ -78,6 +106,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         amount_paid: parseFloat(row.amount_paid),
         payment_mode: row.payment_mode,
         due_amount: parseFloat(row.due_amount),
+        b2b_pending_approval: row.b2b_pending_approval,
         created_at: row.created_at,
         qr_code: qrCodeDataUrl,
         verification_url: verificationUrl,
@@ -147,6 +176,13 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
     const verificationUrl = generateVerificationUrl(row.visit_code, FRONTEND_URL);
     const qrCodeDataUrl = await generateQRCode(verificationUrl, 100);
 
+    // Fetch test IDs for this visit
+    const testsResult = await pool.query(
+      `SELECT id FROM visit_tests WHERE visit_id = $1 ORDER BY id`,
+      [row.id]
+    );
+    const testIds = testsResult.rows.map(t => t.id);
+
     res.json({
       id: row.id,
       patient_id: row.patient_id,
@@ -178,7 +214,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
         email: row.email,
         clinical_history: row.clinical_history,
       },
-      tests: [],
+      tests: testIds,
     });
   } catch (error) {
     console.error('Error fetching visit:', error);
@@ -186,21 +222,25 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
     const { patient_id, referred_doctor_id, ref_customer_id, other_ref_doctor, other_ref_customer, registration_datetime, total_cost, amount_paid, payment_mode } = req.body;
 
     const due_amount = total_cost - amount_paid;
+    // Automatically assign location based on staff member's location
+    const locationId = user?.location_id || null;
 
     // Visit code will be auto-generated by the trigger
     const result = await pool.query(
-      `INSERT INTO visits (patient_id, referred_doctor_id, ref_customer_id, other_ref_doctor, other_ref_customer, registration_datetime, total_cost, amount_paid, payment_mode, due_amount)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, patient_id, referred_doctor_id, ref_customer_id, other_ref_doctor, other_ref_customer, registration_datetime, visit_code, total_cost, amount_paid, payment_mode, due_amount`,
-      [patient_id, referred_doctor_id, ref_customer_id, other_ref_doctor, other_ref_customer, registration_datetime, total_cost, amount_paid, payment_mode, due_amount]
+      `INSERT INTO visits (patient_id, referred_doctor_id, ref_customer_id, other_ref_doctor, other_ref_customer, registration_datetime, total_cost, amount_paid, payment_mode, due_amount, location_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, patient_id, referred_doctor_id, ref_customer_id, other_ref_doctor, other_ref_customer, registration_datetime, visit_code, total_cost, amount_paid, payment_mode, due_amount, location_id`,
+      [patient_id, referred_doctor_id, ref_customer_id, other_ref_doctor, other_ref_customer, registration_datetime, total_cost, amount_paid, payment_mode, due_amount, locationId]
     );
 
     const visit = result.rows[0];
+    console.log(`📍 Visit ${visit.id} created by ${user?.username} at location ${locationId || 'central'}`);
 
     // Audit log: Visit creation
     await auditVisit.create(req, visit.id, visit);
@@ -364,14 +404,15 @@ router.patch('/:id/edit-details', authMiddleware, async (req: Request, res: Resp
   }
 });
 
-// PATCH /api/visits/:id/edit-tests - Add or remove tests from a visit (admin only)
+// PATCH /api/visits/:id/edit-tests - Add or remove tests from a visit (admin or B2B client)
 router.patch('/:id/edit-tests', authMiddleware, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    const userClientId = (user as any)?.clientId;
 
-    // Only SUDO and ADMIN can edit visit tests
-    if (!['SUDO', 'ADMIN'].includes(user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions. Only admins can edit visit tests.' });
+    // Only SUDO, ADMIN, and B2B_CLIENT can edit visit tests
+    if (!['SUDO', 'ADMIN', 'B2B_CLIENT'].includes(user.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions. Only admins and B2B clients can edit visit tests.' });
     }
 
     const visitId = parseInt(req.params.id);
@@ -403,6 +444,13 @@ router.patch('/:id/edit-tests', authMiddleware, async (req: Request, res: Respon
 
     const visit = visitResult.rows[0];
     const isB2BVisit = visit.ref_customer_id !== null;
+
+    // If B2B client, verify they own this visit
+    if (user.role === 'B2B_CLIENT') {
+      if (!userClientId || visit.ref_customer_id !== userClientId) {
+        return res.status(403).json({ error: 'Access denied. You can only edit tests for your own visits.' });
+      }
+    }
 
     // Get current tests for audit log
     const currentTestsResult = await pool.query(
@@ -456,11 +504,19 @@ router.patch('/:id/edit-tests', authMiddleware, async (req: Request, res: Respon
 
         const template = templateResult.rows[0];
 
+        // Determine initial test status based on visit approval status
+        const visitCheckResult = await pool.query(
+          `SELECT b2b_pending_approval FROM visits WHERE id = $1`,
+          [visitId]
+        );
+        const needsApproval = visitCheckResult.rows[0]?.b2b_pending_approval;
+        const initialStatus = needsApproval ? 'AWAITING_APPROVAL' : 'PENDING';
+
         // Add the test
         await pool.query(
           `INSERT INTO visit_tests (visit_id, test_template_id, status)
-           VALUES ($1, $2, 'PENDING')`,
-          [visitId, testTemplateId]
+           VALUES ($1, $2, $3)`,
+          [visitId, testTemplateId, initialStatus]
         );
 
         const testPrice = isB2BVisit ? parseFloat(template.b2b_price) : parseFloat(template.price);
@@ -623,6 +679,95 @@ router.post('/:id/collect-due', authMiddleware, async (req: Request, res: Respon
     });
   } catch (error) {
     console.error('Error collecting due payment:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/visits/:id/approve-b2b - Approve a B2B client visit request (reception only)
+router.patch('/:id/approve-b2b', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const visitId = parseInt(req.params.id);
+    const { approve, reason } = req.body;
+
+    // Only SUDO, ADMIN, and RECEPTION can approve B2B visits
+    if (!['SUDO', 'ADMIN', 'RECEPTION'].includes(user.role)) {
+      return res.status(403).json({ error: 'Only reception staff can approve B2B visits' });
+    }
+
+    // Get visit details
+    const visitResult = await pool.query(
+      `SELECT id, visit_code, b2b_pending_approval, ref_customer_id FROM visits WHERE id = $1`,
+      [visitId]
+    );
+
+    if (visitResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Visit not found' });
+    }
+
+    const visit = visitResult.rows[0];
+
+    if (!visit.b2b_pending_approval) {
+      return res.status(400).json({ error: 'This visit does not require approval' });
+    }
+
+    if (approve) {
+      // Approve: Set b2b_pending_approval to false and update test statuses from AWAITING_APPROVAL to PENDING
+      await pool.query(
+        `UPDATE visits SET b2b_pending_approval = FALSE WHERE id = $1`,
+        [visitId]
+      );
+
+      await pool.query(
+        `UPDATE visit_tests SET status = 'PENDING' WHERE visit_id = $1 AND status = 'AWAITING_APPROVAL'`,
+        [visitId]
+      );
+
+      // Audit log
+      await pool.query(
+        `INSERT INTO audit_logs (username, action, details, user_id, entity_type, entity_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          user.username,
+          'APPROVE_B2B_VISIT',
+          `Approved B2B visit ${visit.visit_code} from client ${visit.ref_customer_id}`,
+          user.id,
+          'visit',
+          visitId
+        ]
+      );
+
+      res.json({ success: true, message: 'Visit approved successfully' });
+    } else {
+      // Reject: Optionally cancel the visit or mark it differently
+      await pool.query(
+        `UPDATE visits SET b2b_pending_approval = FALSE WHERE id = $1`,
+        [visitId]
+      );
+
+      await pool.query(
+        `UPDATE visit_tests SET status = 'CANCELLED' WHERE visit_id = $1 AND status = 'AWAITING_APPROVAL'`,
+        [visitId]
+      );
+
+      // Audit log
+      await pool.query(
+        `INSERT INTO audit_logs (username, action, details, user_id, entity_type, entity_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          user.username,
+          'REJECT_B2B_VISIT',
+          `Rejected B2B visit ${visit.visit_code} from client ${visit.ref_customer_id}. Reason: ${reason || 'No reason provided'}`,
+          user.id,
+          'visit',
+          visitId
+        ]
+      );
+
+      res.json({ success: true, message: 'Visit rejected successfully' });
+    }
+  } catch (error) {
+    console.error('Error approving B2B visit:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

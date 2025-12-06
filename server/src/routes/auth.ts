@@ -129,12 +129,13 @@ router.post('/login', async (req: Request, res: Response) => {
     const permissions = rolePermissions[user.role] || [];
 
     // Generate JWT token
+    const tokenPayload: any = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+    };
     const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-      },
+      tokenPayload,
       JWT_SECRET,
       { expiresIn: JWT_EXPIRY }
     );

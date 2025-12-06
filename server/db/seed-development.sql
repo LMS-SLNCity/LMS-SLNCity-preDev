@@ -71,13 +71,13 @@ ON CONFLICT DO NOTHING;
 -- ============================================
 -- 4. B2B CLIENT LOGINS (All with password: "client")
 -- ============================================
--- Password hash for "client": $2a$10$5H5aLCXd5YQKhKKGJKqPqOXJZ5z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5u
+-- Password hash for "client": $2a$10$dJhzKOKdIwv77QvZrEPV/egdmUvQNyMK/r846R5/v/5rnp5p3j/Iu
 INSERT INTO b2b_client_logins (client_id, password_hash, is_active) VALUES
-(1, '$2a$10$5H5aLCXd5YQKhKKGJKqPqOXJZ5z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5u', true),
-(2, '$2a$10$5H5aLCXd5YQKhKKGJKqPqOXJZ5z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5u', true),
-(3, '$2a$10$5H5aLCXd5YQKhKKGJKqPqOXJZ5z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5u', true),
-(4, '$2a$10$5H5aLCXd5YQKhKKGJKqPqOXJZ5z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5u', true),
-(5, '$2a$10$5H5aLCXd5YQKhKKGJKqPqOXJZ5z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5u', true)
+(1, '$2a$10$dJhzKOKdIwv77QvZrEPV/egdmUvQNyMK/r846R5/v/5rnp5p3j/Iu', true),
+(2, '$2a$10$dJhzKOKdIwv77QvZrEPV/egdmUvQNyMK/r846R5/v/5rnp5p3j/Iu', true),
+(3, '$2a$10$dJhzKOKdIwv77QvZrEPV/egdmUvQNyMK/r846R5/v/5rnp5p3j/Iu', true),
+(4, '$2a$10$dJhzKOKdIwv77QvZrEPV/egdmUvQNyMK/r846R5/v/5rnp5p3j/Iu', true),
+(5, '$2a$10$dJhzKOKdIwv77QvZrEPV/egdmUvQNyMK/r846R5/v/5rnp5p3j/Iu', true)
 ON CONFLICT (client_id) DO UPDATE SET
   password_hash = EXCLUDED.password_hash,
   is_active = EXCLUDED.is_active;

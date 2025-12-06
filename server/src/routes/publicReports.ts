@@ -132,39 +132,42 @@ router.get('/:visitCode', async (req: Request, res: Response) => {
       b2b_client: visit.b2b_client_name ? {
         name: visit.b2b_client_name
       } : null,
-      tests: testsResult.rows.map(test => ({
-        id: test.id,
-        visit_id: test.visit_id,
-        test_template_id: test.test_template_id,
-        status: test.status,
-        collected_by: test.collected_by,
-        collected_at: test.collected_at,
-        specimen_type: test.specimen_type,
-        results: test.results,
-        culture_result: test.culture_result,
-        entered_by: test.entered_by,
-        entered_at: test.entered_at,
-        approved_by: test.approved_by,
-        approved_at: test.approved_at,
-        rejection_count: test.rejection_count,
-        last_rejection_at: test.last_rejection_at,
-        created_at: test.created_at,
-        updated_at: test.updated_at,
-        template: {
-          id: test.template_id,
-          code: test.code,
-          name: test.name,
-          category: test.category,
-          price: parseFloat(test.price),
-          b2b_price: parseFloat(test.b2b_price),
-          isActive: test.is_active,
-          reportType: test.report_type,
-          parameters: test.parameters,
-          defaultAntibioticIds: test.default_antibiotic_ids || [],
-          sampleType: test.sample_type,
-          tatHours: test.tat_hours
-        }
-      }))
+      tests: testsResult.rows.map(test => {
+        const reportType = (test.report_type || 'standard').toLowerCase();
+        return {
+          id: test.id,
+          visit_id: test.visit_id,
+          test_template_id: test.test_template_id,
+          status: test.status,
+          collected_by: test.collected_by,
+          collected_at: test.collected_at,
+          specimen_type: test.specimen_type,
+          results: test.results,
+          culture_result: test.culture_result,
+          entered_by: test.entered_by,
+          entered_at: test.entered_at,
+          approved_by: test.approved_by,
+          approved_at: test.approved_at,
+          rejection_count: test.rejection_count,
+          last_rejection_at: test.last_rejection_at,
+          created_at: test.created_at,
+          updated_at: test.updated_at,
+          template: {
+            id: test.template_id,
+            code: test.code,
+            name: test.name,
+            category: test.category,
+            price: parseFloat(test.price),
+            b2b_price: parseFloat(test.b2b_price),
+            isActive: test.is_active,
+            reportType,
+            parameters: test.parameters,
+            defaultAntibioticIds: test.default_antibiotic_ids || [],
+            sampleType: test.sample_type,
+            tatHours: test.tat_hours
+          }
+        };
+      })
     };
 
     console.log(`✅ Sending public report for visit ${visit.visit_code} with ${testsResult.rows.length} tests`);

@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import pool from '../db/connection.js';
 import { authMiddleware, requirePermission } from '../middleware/auth.js';
 
@@ -10,7 +11,7 @@ const router = express.Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, email, phone, organization, testIds, message } = req.body;
+    const { name, email, phone, organization, testIds, message, locationId } = req.body;
 
     // Validation
     if (!name || !email) {
@@ -25,10 +26,10 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Insert inquiry
     const result = await pool.query(
-      `INSERT INTO test_inquiries (name, email, phone, organization, test_ids, message)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, name, email, phone, organization, test_ids, message, created_at, is_read`,
-      [name, email, phone || null, organization || null, testIds?.join(',') || null, message || null]
+      `INSERT INTO test_inquiries (name, email, phone, organization, test_ids, message, location_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, name, email, phone, organization, test_ids, message, created_at, is_read, location_id`,
+      [name, email, phone || null, organization || null, (Array.isArray(testIds) ? testIds.join(',') : (testIds || null)), message || null, locationId || null]
     );
 
     const inquiry = result.rows[0];
@@ -55,9 +56,24 @@ router.get('/', authMiddleware, requirePermission(['MANAGE_B2B', 'VIEW_ADMIN_PAN
     let query = 'SELECT id, name, email, phone, organization, test_ids, message, created_at, is_read FROM test_inquiries';
     const params: any[] = [];
 
+    const whereClauses: string[] = [];
     if (isRead !== undefined) {
-      query += ` WHERE is_read = $1`;
+      whereClauses.push(`is_read = $${params.length + 1}`);
       params.push(isRead === 'true');
+    }
+
+    // If the user is not SUDO, restrict to their location if available
+    const userRole = (req as any).user?.role;
+    const userLocation = (req as any).user?.location_id;
+    if (userRole !== 'SUDO') {
+      if (userLocation !== undefined && userLocation !== null) {
+        whereClauses.push(`location_id = $${params.length + 1}`);
+        params.push(userLocation);
+      }
+    }
+
+    if (whereClauses.length > 0) {
+      query += ' WHERE ' + whereClauses.join(' AND ');
     }
 
     query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
@@ -68,10 +84,20 @@ router.get('/', authMiddleware, requirePermission(['MANAGE_B2B', 'VIEW_ADMIN_PAN
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) as count FROM test_inquiries';
-    if (isRead !== undefined) {
-      countQuery += ` WHERE is_read = $1`;
+    if (whereClauses.length > 0) {
+      // rebuild count params in same order as params used above
+      const countParams = params.slice(0, params.length);
+      countQuery += ' WHERE ' + whereClauses.join(' AND ');
+      const countResult = await pool.query(countQuery, countParams);
+      res.json({
+        inquiries: result.rows,
+        total: parseInt(countResult.rows[0].count),
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+      return;
     }
-    const countResult = await pool.query(countQuery, isRead !== undefined ? [isRead === 'true'] : []);
+    const countResult = await pool.query(countQuery, []);
 
     res.json({
       inquiries: result.rows,
@@ -153,9 +179,16 @@ router.patch('/:id', authMiddleware, requirePermission(['MANAGE_B2B', 'VIEW_ADMI
  */
 router.get('/unread/count', authMiddleware, requirePermission(['MANAGE_B2B', 'VIEW_ADMIN_PANEL']), async (req: Request, res: Response) => {
   try {
-    const result = await pool.query(
-      `SELECT COUNT(*) as count FROM test_inquiries WHERE is_read = false`
-    );
+    // Restrict unread count to user's location unless SUDO
+    const userRole = (req as any).user?.role;
+    const userLocation = (req as any).user?.location_id;
+    let query = `SELECT COUNT(*) as count FROM test_inquiries WHERE is_read = false`;
+    const params: any[] = [];
+    if (userRole !== 'SUDO' && userLocation !== undefined && userLocation !== null) {
+      query += ' AND location_id = $1';
+      params.push(userLocation);
+    }
+    const result = await pool.query(query, params);
 
     res.json({ unreadCount: parseInt(result.rows[0].count) });
   } catch (error) {

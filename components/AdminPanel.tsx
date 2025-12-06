@@ -15,8 +15,9 @@ import { BranchManagement } from './admin/BranchManagement';
 import { VisitsManagement } from './admin/VisitsManagement';
 import { UnitManagement } from './admin/UnitManagement';
 import { useAppContext } from '../context/AppContext';
+import { UserLocationAssignment } from './UserLocationAssignment';
 
-type AdminTab = 'dashboard' | 'users' | 'roles' | 'tests' | 'pricing' | 'b2b' | 'referral_doctors' | 'approvers' | 'branches' | 'audit' | 'antibiotics' | 'visits' | 'units';
+type AdminTab = 'dashboard' | 'users' | 'roles' | 'tests' | 'pricing' | 'b2b' | 'referral_doctors' | 'approvers' | 'branches' | 'audit' | 'antibiotics' | 'visits' | 'units' | 'locations';
 
 interface AdminPanelProps {
     user: User;
@@ -54,6 +55,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
         tabs.push({name: 'dashboard', label: 'Dashboard', permission: 'MANAGE_USERS'});
         tabs.push({name: 'visits', label: 'Visits', permission: 'VIEW_RECEPTION'});
         if(hasPermission('MANAGE_USERS')) tabs.push({name: 'users', label: 'User Management', permission: 'MANAGE_USERS'});
+        if(hasPermission('MANAGE_USERS')) tabs.push({name: 'locations', label: 'Location Access', permission: 'MANAGE_USERS'});
         if(hasPermission('MANAGE_USERS')) tabs.push({name: 'approvers', label: 'Approvers & Signatures', permission: 'MANAGE_USERS'});
         if(hasPermission('MANAGE_USERS')) tabs.push({name: 'branches', label: 'Branch Management', permission: 'MANAGE_USERS'});
         if(hasPermission('MANAGE_ROLES')) tabs.push({name: 'roles', label: 'Role Management', permission: 'MANAGE_ROLES'});
@@ -150,6 +152,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ user }) => {
         {activeTab === 'dashboard' && <Dashboard />}
         {activeTab === 'visits' && hasPermission('VIEW_RECEPTION') && <VisitsManagement />}
         {activeTab === 'users' && hasPermission('MANAGE_USERS') && <UserManagement />}
+        {activeTab === 'locations' && hasPermission('MANAGE_USERS') && <UserLocationAssignment />}
         {activeTab === 'approvers' && hasPermission('MANAGE_USERS') && <ApproverManagement />}
         {activeTab === 'branches' && hasPermission('MANAGE_USERS') && <BranchManagement />}
         {activeTab === 'roles' && hasPermission('MANAGE_ROLES') && <RoleManagement />}

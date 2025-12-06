@@ -21,40 +21,43 @@ router.get('/', async (req: Request, res: Response) => {
        LEFT JOIN referral_doctors rd ON v.referred_doctor_id = rd.id
        ORDER BY vt.created_at DESC`
     );
-    res.json(result.rows.map(row => ({
-      id: row.id,
-      visitId: row.visit_id,
-      patientName: row.patient_name,
-      visitCode: row.visit_code,
-      referredDoctorName: row.referred_doctor_name,
-      referredDoctorDesignation: row.referred_doctor_designation,
-      otherRefDoctor: row.other_ref_doctor,
-      template: {
-        id: row.template_id,
-        code: row.code,
-        name: row.name,
-        category: row.category,
-        price: row.price,
-        b2b_price: row.b2b_price,
-        isActive: row.is_active,
-        reportType: row.report_type,
-        parameters: typeof row.parameters === 'string' ? JSON.parse(row.parameters) : row.parameters,
-        defaultAntibioticIds: row.default_antibiotic_ids,
-        sampleType: row.sample_type,
-        tatHours: row.tat_hours,
-      },
-      status: row.status,
-      collectedBy: row.collected_by,
-      collectedAt: row.collected_at,
-      specimen_type: row.specimen_type,
-      results: row.results,
-      cultureResult: row.culture_result,
-      approvedBy: row.approved_by,
-      approvedAt: row.approved_at,
-      rejection_count: row.rejection_count || 0,
-      last_rejection_at: row.last_rejection_at,
-      created_at: row.created_at,
-    })));
+    res.json(result.rows.map(row => {
+      const reportType = (row.report_type || 'standard').toLowerCase();
+      return {
+        id: row.id,
+        visitId: row.visit_id,
+        patientName: row.patient_name,
+        visitCode: row.visit_code,
+        referredDoctorName: row.referred_doctor_name,
+        referredDoctorDesignation: row.referred_doctor_designation,
+        otherRefDoctor: row.other_ref_doctor,
+        template: {
+          id: row.template_id,
+          code: row.code,
+          name: row.name,
+          category: row.category,
+          price: row.price,
+          b2b_price: row.b2b_price,
+          isActive: row.is_active,
+          reportType,
+          parameters: typeof row.parameters === 'string' ? JSON.parse(row.parameters) : row.parameters,
+          defaultAntibioticIds: row.default_antibiotic_ids,
+          sampleType: row.sample_type,
+          tatHours: row.tat_hours,
+        },
+        status: row.status,
+        collectedBy: row.collected_by,
+        collectedAt: row.collected_at,
+        specimen_type: row.specimen_type,
+        results: row.results,
+        cultureResult: row.culture_result,
+        approvedBy: row.approved_by,
+        approvedAt: row.approved_at,
+        rejection_count: row.rejection_count || 0,
+        last_rejection_at: row.last_rejection_at,
+        created_at: row.created_at,
+      };
+    }));
   } catch (error) {
     console.error('Error fetching visit tests:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -78,6 +81,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Visit test not found' });
 
     const row = result.rows[0];
+    const reportType = (row.report_type || 'standard').toLowerCase();
     res.json({
       id: row.id,
       visitId: row.visit_id,
@@ -91,7 +95,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         price: row.price,
         b2b_price: row.b2b_price,
         isActive: row.is_active,
-        reportType: row.report_type,
+        reportType,
         parameters: typeof row.parameters === 'string' ? JSON.parse(row.parameters) : row.parameters,
         defaultAntibioticIds: row.default_antibiotic_ids,
         sampleType: row.sample_type,
@@ -338,9 +342,9 @@ router.post('/:id/cancel', authMiddleware, requireRole(['SUDO', 'ADMIN']), async
       return res.status(400).json({ error: 'Invalid test id' });
     }
 
-    // Get test details for audit log
+    // Get test details for audit log and determine correct price
     const testDetails = await pool.query(
-      `SELECT vt.*, tt.name as test_name, v.visit_code, p.name as patient_name
+      `SELECT vt.*, tt.name as test_name, tt.price, tt.b2b_price, v.visit_code, v.ref_customer_id, p.name as patient_name
        FROM visit_tests vt
        JOIN test_templates tt ON vt.test_template_id = tt.id
        JOIN visits v ON vt.visit_id = v.id
@@ -354,6 +358,9 @@ router.post('/:id/cancel', authMiddleware, requireRole(['SUDO', 'ADMIN']), async
     }
 
     const testData = testDetails.rows[0];
+    // Determine if this is a B2B visit and use the correct price
+    const isB2BVisit = testData.ref_customer_id != null;
+    const testPrice = isB2BVisit ? (parseFloat(testData.b2b_price) || 0) : (parseFloat(testData.price) || 0);
 
     // Update visit_test status to CANCELLED
     const result = await pool.query(
@@ -368,6 +375,17 @@ router.post('/:id/cancel', authMiddleware, requireRole(['SUDO', 'ADMIN']), async
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Visit test not found after update' });
     }
+
+    // Reduce the visit's total_cost and due_amount by the test price
+    const visitId = result.rows[0].visit_id;
+    await pool.query(
+      `UPDATE visits
+       SET total_cost = total_cost - $1,
+           due_amount = due_amount - $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [testPrice, testPrice, visitId]
+    );
 
     // Log cancellation in audit trail
     try {

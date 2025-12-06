@@ -64,7 +64,7 @@ interface AppContextType extends AppState {
   updateVisitTestStatus: (visitTestId: number, status: VisitTestStatus, actor: User, details?: UpdateStatusDetails) => void;
   addTestResult: (visitTestId: number, data: AddResultData, actor: User) => void;
   editTestResult: (visitTestId: number, data: AddResultData, reason: string, actor: User) => void;
-  approveTestResult: (visitTestId: number, actor: User) => void;
+  approveTestResult: (visitTestId: number, actor: User, approverNote?: string | null) => void;
   rejectTestResult: (visitTestId: number, rejectionReason: string, actor: User) => Promise<void>;
   collectDuePayment: (visitId: number, amount: number, mode: Visit['payment_mode'], actor: User) => void;
   // Admin functions
@@ -504,10 +504,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const approveTestResult = async (visitTestId: number, actor: User) => {
+  const approveTestResult = async (visitTestId: number, actor: User, approverNote?: string | null) => {
     try {
       const authToken = getAuthToken();
       const test = state.visitTests.find(t => t.id === visitTestId);
+      let updatedResults: Record<string, any> | undefined;
+      if (approverNote !== undefined) {
+        const base = { ...(test?.results || {}) } as Record<string, any>;
+        if (approverNote === null) {
+          delete base.approver_note;
+          delete base.approverNote;
+        } else {
+          base.approver_note = approverNote;
+        }
+        updatedResults = base;
+      }
 
       // OPTIMISTIC UPDATE: Update UI immediately
       setState(prevState => ({
@@ -519,6 +530,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 status: 'APPROVED' as VisitTestStatus,
                 approvedBy: actor.username,
                 approvedAt: new Date().toISOString(),
+                results: updatedResults ? updatedResults : t.results,
               }
             : t
         ),
@@ -528,8 +540,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         status: 'APPROVED',
         approved_by: actor.username,
         approved_at: new Date().toISOString(),
+        results: updatedResults,
       };
 
+      console.log('DEBUG: Sending approval to backend:', { visitTestId, updateData, url: `${API_BASE_URL}/visit-tests/${visitTestId}` });
       const response = await fetch(`${API_BASE_URL}/visit-tests/${visitTestId}`, {
         method: 'PATCH',
         headers: {
@@ -539,6 +553,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         body: JSON.stringify(updateData),
       });
 
+      console.log('DEBUG: Approval response status:', response.status, response.statusText);
       if (response.ok) {
         if(test) {
           addAuditLog(actor.username, 'APPROVE_RESULTS', `Approved results for test ${test.template.code} (Visit: ${test.visitCode}).`);
@@ -546,6 +561,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Fetch ONLY the updated test from server
         const updatedTest = await response.json();
+        console.log('DEBUG: Approval response data:', updatedTest);
 
         setState(prevState => ({
           ...prevState,
@@ -824,6 +840,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         tatHours: templateData.tatHours || 24,
       };
 
+      console.log('DEBUG: Sending test template to backend:', backendData);
       const response = await fetch(`${API_BASE_URL}/test-templates`, {
         method: 'POST',
         headers: {
@@ -1569,7 +1586,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         role: user.role,
         isActive: user.is_active,
         permissions: user.permissions || [],
-        signatureImageUrl: user.signature_image_url
+        signatureImageUrl: user.signature_image_url,
+        location_id: user.location_id || null
       }));
       setState(prevState => ({ ...prevState, users }));
     } catch (error) {

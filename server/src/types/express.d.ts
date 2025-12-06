@@ -2,7 +2,9 @@
  * Express type extensions for better TypeScript support
  */
 
-import { Request } from 'express';
+import * as express from 'express';
+
+export { Request, Response, Router, Application } from 'express';
 
 declare global {
   namespace Express {
@@ -21,6 +23,4 @@ declare global {
     }
   }
 }
-
-export {};
 

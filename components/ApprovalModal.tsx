@@ -17,6 +17,10 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({ test, onClose }) =
   const [isEditing, setIsEditing] = useState(false);
   const [editedResults, setEditedResults] = useState<any>(test.results || {});
   const [editReason, setEditReason] = useState('');
+    const [approverNote, setApproverNote] = useState<string>(() => {
+        const r: any = test.results || {};
+        return r.approver_note || r.approverNote || '';
+    });
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -66,21 +70,25 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({ test, onClose }) =
   };
 
   const handleApprove = async () => {
+    console.log('DEBUG: Approval attempt for test:', { testId: test.id, testName: test.template?.name, status: test.status });
     if (!user) {
         alert("User session has expired. Please log in again.");
         return;
     }
     if (test.status !== 'AWAITING_APPROVAL') {
+        console.log('DEBUG: Test status not AWAITING_APPROVAL. Current:', test.status);
         alert(`Cannot approve. Test status is ${test.status}. Only AWAITING_APPROVAL tests can be approved.`);
         return;
     }
+    console.log('DEBUG: Test status is correct, proceeding with approval');
     setIsSubmitting(true);
 
     // Close modal immediately for better UX
     onClose();
 
     try {
-      await approveTestResult(test.id, user);
+            const noteToSend = approverNote && approverNote.trim().length > 0 ? approverNote.trim() : null;
+            await approveTestResult(test.id, user, noteToSend);
     } catch (error) {
       alert('Failed to approve test result');
     } finally {
@@ -245,6 +253,17 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({ test, onClose }) =
                 ) : (
                     <p className="text-sm text-gray-500">No specific result parameters were entered for this test.</p>
                 )}
+            </div>
+
+            <div className="mt-6 border-t pt-4">
+                <h4 className="font-semibold text-gray-800 mb-2">Approver Note (prints on report)</h4>
+                <textarea
+                    value={approverNote}
+                    onChange={(e) => setApproverNote(e.target.value)}
+                    placeholder="Add any interpretation or note you want visible on the printed report"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
             </div>
 
             {/* Edit Reason Form */}

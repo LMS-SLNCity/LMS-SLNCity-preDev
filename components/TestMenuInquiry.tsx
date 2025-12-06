@@ -15,6 +15,8 @@ export const TestMenuInquiry: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [locations, setLocations] = useState<Array<{ id: number; name: string }>>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -40,7 +42,21 @@ export const TestMenuInquiry: React.FC = () => {
       }
     };
 
+    const fetchLocations = async () => {
+      try {
+        const r = await fetch('http://localhost:5002/api/public/locations');
+        if (r.ok) {
+          const d = await r.json();
+          setLocations(d);
+          if (d.length > 0) setSelectedLocationId(d[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching locations', err);
+      }
+    };
+
     fetchTests();
+    fetchLocations();
   }, []);
 
   const handleTestToggle = (testId: number) => {
@@ -83,6 +99,7 @@ export const TestMenuInquiry: React.FC = () => {
           organization: formData.organization || undefined,
           testIds: selectedTests,
           message: formData.message || undefined,
+          locationId: selectedLocationId || undefined,
         }),
       });
 
@@ -131,7 +148,7 @@ export const TestMenuInquiry: React.FC = () => {
                   <div key={category} className="test-category">
                     <h3 className="category-title">{category}</h3>
                     <div className="test-items">
-                      {categoryTests.map(test => (
+                      {(Array.isArray(categoryTests) ? categoryTests : []).map(test => (
                         <label key={test.id} className="test-checkbox">
                           <input
                             type="checkbox"
@@ -244,6 +261,15 @@ export const TestMenuInquiry: React.FC = () => {
                 placeholder="Tell us more about your requirements..."
                 rows={4}
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="location">Preferred Location</label>
+              <select id="location" value={selectedLocationId ?? ''} onChange={(e) => setSelectedLocationId(Number(e.target.value))}>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
             </div>
 
             <button

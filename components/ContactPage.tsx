@@ -6,6 +6,8 @@ export const ContactPage: React.FC = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [locations, setLocations] = useState<Array<{ id: number; name: string }>>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -23,7 +25,7 @@ export const ContactPage: React.FC = () => {
       const res = await fetch(`${API_BASE_URL}/api/test-inquiries`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formData.name, email: formData.email, phone: formData.phone, message: formData.message })
+        body: JSON.stringify({ name: formData.name, email: formData.email, phone: formData.phone, message: formData.message, locationId: selectedLocationId || undefined })
       });
       if (res.ok) {
         setStatus({ type: 'success', text: 'Thank you — we will contact you shortly.' });
@@ -40,6 +42,22 @@ export const ContactPage: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  React.useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const r = await fetch(`${API_BASE_URL}/api/public/locations`);
+        if (r.ok) {
+          const d = await r.json();
+          setLocations(d);
+          if (d.length > 0) setSelectedLocationId(d[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching locations', err);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   return (
     <div style={{ padding: '2rem 1rem', maxWidth: 700, margin: '0 auto' }}>
@@ -67,6 +85,15 @@ export const ContactPage: React.FC = () => {
         <div style={{ marginBottom: 8 }}>
           <label>Message</label>
           <textarea name="message" value={formData.message} onChange={handleChange} rows={4} style={{ width: '100%', padding: '8px', marginTop: 4 }} />
+        </div>
+
+        <div style={{ marginBottom: 8 }}>
+          <label>Preferred Location</label>
+          <select value={selectedLocationId ?? ''} onChange={(e) => setSelectedLocationId(Number(e.target.value))} style={{ width: '100%', padding: '8px', marginTop: 4 }}>
+            {locations.map(loc => (
+              <option key={loc.id} value={loc.id}>{loc.name}</option>
+            ))}
+          </select>
         </div>
 
         <button type="submit" disabled={submitting} style={{ padding: '10px 16px' }}>{submitting ? 'Sending...' : 'Send Message'}</button>

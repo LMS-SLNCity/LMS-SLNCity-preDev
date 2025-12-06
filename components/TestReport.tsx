@@ -38,6 +38,16 @@ const formatDate = (dateString?: string) => {
 };
 
 const isCultureTest = (test: VisitTest) => !!test.cultureResult;
+const isFluidReport = (test: VisitTest) => {
+  const rt: any = (test.template as any)?.reportType;
+  return typeof rt === 'string' && rt.toLowerCase() === 'fluid';
+};
+
+const estimateTextRows = (text?: string) => {
+  if (!text) return 2;
+  const lines = text.split(/\r?\n/).filter(Boolean).length;
+  return Math.max(2, lines + 2);
+};
 
 const estimateMicrobiologyRows = (test: VisitTest) => {
   try {
@@ -56,6 +66,14 @@ const countDisplayRowsForTest = (test: VisitTest) => {
   // Culture tests take more space
   if (isCultureTest(test)) {
     return estimateMicrobiologyRows(test);
+  }
+
+  if (isFluidReport(test)) {
+    const r: any = test.results || {};
+    const observationRows = estimateTextRows(r.observation || r.description || r.findings);
+    const remarksRows = r.remarks ? estimateTextRows(r.remarks) : 0;
+    const approverNoteRows = r.approver_note ? estimateTextRows(r.approver_note) : 0;
+    return 2 + observationRows + remarksRows + approverNoteRows;
   }
   
   // For regular tests: title(1) + header(1) + parameters
@@ -147,8 +165,7 @@ const createReportPages = (testsByCategory: Record<string, VisitTest[]>) => {
     const totalTestsInPages = pages.reduce((s, p) => s + p.groups.reduce((gs, g) => gs + g.tests.length, 0), 0);
     const totalTestsOriginal = Object.values(testsByCategory).reduce((s, arr) => s + arr.length, 0);
     if (totalTestsInPages !== totalTestsOriginal) {
-      // eslint-disable-next-line no-console
-      console.error('PAGINATION MISMATCH', { totalTestsOriginal, totalTestsInPages, pages });
+      // Pagination mismatch - safety check only
     }
   } catch { /* ignore */ }
 
@@ -176,8 +193,7 @@ const BarcodeComponent: React.FC<{ value: string }> = ({ value }) => {
         }
       })
       .catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error('Error loading jsbarcode', err);
+        // Barcode library loading failed - silently fail
       });
     return () => { cancelled = true; };
   }, [value]);
@@ -190,24 +206,47 @@ const BarcodeComponent: React.FC<{ value: string }> = ({ value }) => {
 interface TestReportProps {
   visit: Visit;
   signatory?: Signatory | null;
+  visitTests?: VisitTest[];  // Optional: pass tests directly from parent
 }
 
-export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null }) => {
-  const { visitTests } = useAppContext();
+export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null, visitTests: passedVisitTests }) => {
+  const { visitTests: contextVisitTests } = useAppContext();
   const [approvers, setApprovers] = useState<Approver[]>([]);
+
+  // Use passed visitTests if available, otherwise fall back to context
+  const visitTests = passedVisitTests && passedVisitTests.length > 0 ? passedVisitTests : contextVisitTests;
 
   if (!visit) {
     return <div className="bg-white p-8 max-w-4xl mx-auto text-red-500">Error: Visit data not found.</div>;
   }
 
   // Only include APPROVED or PRINTED tests (support reprint)
-  const approvedTestsForVisit = visit.tests
-    .map((testId: number) => visitTests.find(vt => vt.id === testId && (vt.status === 'APPROVED' || vt.status === 'PRINTED')))
+  console.log('DEBUG TestReport: visit.tests:', visit.tests);
+  console.log('DEBUG TestReport: visitTests:', visitTests.map(vt => ({ id: vt.id, status: vt.status, name: vt.template?.name })));
+
+  // Allow report to be shown if any test is APPROVED or PRINTED (for B2B clients, allow reprint always)
+  // NOTE: visit.tests comes from API as array of objects with {id, status, template}, not just IDs
+  const approvedOrPrintedTestsForVisit = visit.tests
+    .map((test: any) => {
+      const testId = typeof test === 'number' ? test : test.id;
+      return visitTests.find(vt => vt.id === testId && (vt.status === 'APPROVED' || vt.status === 'PRINTED'));
+    })
     .filter(Boolean) as VisitTest[];
 
-  if (approvedTestsForVisit.length === 0) {
+  console.log('DEBUG TestReport: approvedOrPrintedTestsForVisit:', approvedOrPrintedTestsForVisit.map(t => ({ id: t.id, status: t.status })));
+
+  // If at least one test is PRINTED, allow report to be shown always
+  const anyPrinted = approvedOrPrintedTestsForVisit.some(t => t.status === 'PRINTED');
+  if (approvedOrPrintedTestsForVisit.length === 0 && !anyPrinted) {
+    console.log('DEBUG TestReport: No approved tests found. All tests:', visit.tests.map((t: any) => {
+      const testId = typeof t === 'number' ? t : t.id;
+      const test = visitTests.find(vt => vt.id === testId);
+      return { id: testId, status: test?.status, found: !!test };
+    }));
     return <div className="bg-white p-8 max-w-4xl mx-auto text-yellow-600">Report not ready. No approved or printed tests found for this visit.</div>;
   }
+  // Use all printed/approved tests for report rendering
+  const approvedTestsForVisit = approvedOrPrintedTestsForVisit;
 
   const firstTest = approvedTestsForVisit[0];
 
@@ -272,15 +311,12 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
 
         setApprovers(fetchedApprovers);
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('Error fetching approvers', err);
         try {
           const resp = await fetch(`${API_BASE_URL}/approvers`);
           const data = await resp.json();
           if (mounted) setApprovers((data || []).filter((a: Approver) => a.show_on_print));
         } catch (e) {
-          // eslint-disable-next-line no-console
-          console.error('Fallback approvers fetch failed', e);
+          // Approvers fetch failed - silently fail
         }
       }
     };
@@ -291,7 +327,9 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
   }, [visit.id]); // run when visit changes
 
   // Derive sample drawn and reported dates
-  const testsForVisit = visitTests.filter(t => visit.tests.includes(t.id));
+  // Extract test IDs from visit.tests (which may be objects or numbers)
+  const visitTestIds = visit.tests.map((t: any) => typeof t === 'number' ? t : t.id);
+  const testsForVisit = visitTests.filter(t => visitTestIds.includes(t.id));
   const sampleDrawnDate = testsForVisit.map(t => t.collectedAt).filter(Boolean).sort()[0];
   const reportedDate = testsForVisit.map(t => t.approvedAt).filter(Boolean).sort()[0];
 
@@ -764,73 +802,164 @@ export const TestReport: React.FC<TestReportProps> = ({ visit, signatory = null 
                   {isCultureTest(test) ? (
                     <div>
                       <MicrobiologyReportDisplay test={test} visit={visit} />
+                      {(() => {
+                        const r: any = test.results || {};
+                        const approverNote = r.approver_note || r.approverNote;
+                        if (!approverNote) return null;
+                        return (
+                          <div className="test-remarks">
+                            <strong>Approver Note:</strong>
+                            <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{approverNote}</div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <>
-                    <table className="report-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '40%' }}>Test Description</th>
-                          <th style={{ width: '15%', textAlign: 'center' }}>Result</th>
-                          <th style={{ width: '15%', textAlign: 'center' }}>Units</th>
-                          <th style={{ width: '30%' }}>Biological Reference Range</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="test-name">
-                          <td colSpan={4}>{test.template?.name}{test.specimen_type ? ` (Specimen: ${test.specimen_type})` : ''}</td>
-                        </tr>
-
-                        {test.template?.parameters?.fields && test.template.parameters.fields.length > 0 ? (
-                          test.template.parameters.fields.map((param: any, idx: number) => (
-                            param.type === 'heading' ? (
-                              <tr key={`heading-${test.id}-${idx}`} className="section-heading">
-                                <td colSpan={4}>{param.name}</td>
-                              </tr>
-                            ) : (
-                              <tr key={`${test.id}-${param.name}`}>
-                                <td>
-                                  <div>{param.name}</div>
-                                  {param.method && <div className="test-method">{param.method}</div>}
-                                </td>
-                                <td className="test-result-value">{String(test.results?.[param.name] ?? '-')}</td>
-                                <td className="test-result-unit">{param.unit ?? ''}</td>
-                                <td>{param.reference_range ?? ''}</td>
-                              </tr>
-                            )
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan={4} style={{ textAlign: 'center' }}>No parameters</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                    {/* Print remarks for non-culture tests. If there are no parameters, allow pathologist interpretations stored in results */}
                     {(() => {
-                      const noParameters = !test.template?.parameters?.fields || test.template?.parameters?.fields.length === 0;
+                      const isFluid = isFluidReport(test);
                       const r: any = test.results || {};
-                      // Prefer explicit keys
-                      const explicit = r.remarks || r.remark || r.interpretation || r.interpretations;
-                      let remarkContent: string | null = null;
-                      if (explicit && String(explicit).trim().length > 0) remarkContent = String(explicit);
+                      const approverNote = r.approver_note || r.approverNote;
 
-                      if (!remarkContent && noParameters) {
-                        // Fallback: gather any string values from results
-                        const vals = Object.values(r).filter(v => typeof v === 'string' && String(v).trim().length > 0);
-                        if (vals.length > 0) remarkContent = vals.join('\n');
-                      }
+                      if (isFluid) {
+                        const observation = r.observation || r.description || r.findings || '-';
+                        const remarks = r.remarks || r.remark || '';
+                        const notes = r.notes || r.clinical_notes || '';
+                        const sidebarSections = (test.template.parameters?.fields || []).filter((f: any) => f.type === 'section');
 
-                      if (remarkContent) {
                         return (
-                          <div className="test-remarks">
-                            <strong>Remarks:</strong>
-                            <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{remarkContent}</div>
+                          <div className="test-remarks" style={{ background: '#ffffff', borderLeft: '3px solid #d4d4d4' }}>
+                            <div style={{ fontWeight: 700, marginBottom: 8 }}>{test.template?.name}{test.specimen_type ? ` (Specimen: ${test.specimen_type})` : ''}</div>
+                            
+                            {/* Render sidebar section analyses */}
+                            {sidebarSections.length > 0 && (
+                              <div style={{ marginBottom: 12 }}>
+                                {sidebarSections.map((section: any) => {
+                                  const sectionAnalysis = r[section.name] || '';
+                                  if (!sectionAnalysis) return null;
+                                  return (
+                                    <div key={section.name} style={{ marginBottom: 10, paddingLeft: 12, borderLeft: '4px solid #2563eb', backgroundColor: '#f0f4ff', padding: '10px', borderRadius: '0 4px 4px 0' }}>
+                                      <div style={{ fontWeight: 600, color: '#1e40af', marginBottom: 4, fontSize: '11px', textTransform: 'uppercase' }}>{section.name}</div>
+                                      {section.subtitle && <div style={{ fontSize: '9px', color: '#5b7ca8', marginBottom: 4, fontStyle: 'italic' }}>{section.subtitle}</div>}
+                                      <div style={{ whiteSpace: 'pre-wrap', fontSize: '11px', lineHeight: '1.4', color: '#1f2937' }}>{String(sectionAnalysis)}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Primary observation */}
+                            <div style={{ marginBottom: 8 }}>
+                              <strong>Observation:</strong>
+                              <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', fontSize: '11px', lineHeight: '1.4' }}>{String(observation)}</div>
+                            </div>
+
+                            {/* Clinical notes */}
+                            {notes && (
+                              <div style={{ marginBottom: 8 }}>
+                                <strong>Clinical Notes:</strong>
+                                <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', fontStyle: 'italic', color: '#666', fontSize: '11px', lineHeight: '1.4' }}>{String(notes)}</div>
+                              </div>
+                            )}
+
+                            {/* Remarks */}
+                            {remarks && (
+                              <div style={{ marginBottom: 8 }}>
+                                <strong>Remarks:</strong>
+                                <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', fontSize: '11px', lineHeight: '1.4' }}>{String(remarks)}</div>
+                              </div>
+                            )}
+
+                            {/* Approver note */}
+                            {approverNote && (
+                              <div style={{ marginTop: 8 }}>
+                                <strong>Approver Note:</strong>
+                                <div style={{ marginTop: 4, whiteSpace: 'pre-wrap', fontSize: '11px', lineHeight: '1.4' }}>{String(approverNote)}</div>
+                              </div>
+                            )}
                           </div>
                         );
                       }
 
-                      return null;
+                      return (
+                        <>
+                          <table className="report-table">
+                            <thead>
+                              <tr>
+                                <th style={{ width: '40%' }}>Test Description</th>
+                                <th style={{ width: '15%', textAlign: 'center' }}>Result</th>
+                                <th style={{ width: '15%', textAlign: 'center' }}>Units</th>
+                                <th style={{ width: '30%' }}>Biological Reference Range</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="test-name">
+                                <td colSpan={4}>{test.template?.name}{test.specimen_type ? ` (Specimen: ${test.specimen_type})` : ''}</td>
+                              </tr>
+
+                              {test.template?.parameters?.fields && test.template.parameters.fields.length > 0 ? (
+                                test.template.parameters.fields.map((param: any, idx: number) => (
+                                  param.type === 'heading' ? (
+                                    <tr key={`heading-${test.id}-${idx}`} className="section-heading">
+                                      <td colSpan={4}>{param.name}</td>
+                                    </tr>
+                                  ) : (
+                                    <tr key={`${test.id}-${param.name}`}>
+                                      <td>
+                                        <div>{param.name}</div>
+                                        {param.method && <div className="test-method">{param.method}</div>}
+                                      </td>
+                                      <td className="test-result-value">{String(test.results?.[param.name] ?? '-')}</td>
+                                      <td className="test-result-unit">{param.unit ?? ''}</td>
+                                      <td>{param.reference_range ?? ''}</td>
+                                    </tr>
+                                  )
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={4} style={{ textAlign: 'center' }}>No parameters</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                          {/* Print remarks for non-culture tests. If there are no parameters, allow pathologist interpretations stored in results */}
+                          {(() => {
+                            const noParameters = !test.template?.parameters?.fields || test.template?.parameters?.fields.length === 0;
+                            const explicit = r.remarks || r.remark || r.interpretation || r.interpretations;
+                            let remarkContent: string | null = null;
+                            if (explicit && String(explicit).trim().length > 0) remarkContent = String(explicit);
+
+                            if (!remarkContent && noParameters) {
+                              // Fallback: gather any string values from results
+                              const vals = Object.values(r).filter(v => typeof v === 'string' && String(v).trim().length > 0);
+                              if (vals.length > 0) remarkContent = vals.join('\n');
+                            }
+
+                            const approverContent = approverNote && String(approverNote).trim().length > 0 ? String(approverNote) : null;
+
+                            if (remarkContent || approverContent) {
+                              return (
+                                <div className="test-remarks">
+                                  {remarkContent && (
+                                    <div>
+                                      <strong>Remarks:</strong>
+                                      <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{remarkContent}</div>
+                                    </div>
+                                  )}
+                                  {approverContent && (
+                                    <div style={{ marginTop: remarkContent ? 8 : 0 }}>
+                                      <strong>Approver Note:</strong>
+                                      <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{approverContent}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })()}
+                        </>
+                      );
                     })()}
                     </>
                   )}

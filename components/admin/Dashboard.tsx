@@ -143,6 +143,8 @@ export const Dashboard: React.FC = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [customStartTime, setCustomStartTime] = useState('00:00');
+  const [customEndTime, setCustomEndTime] = useState('23:59');
 
   // Calculate date range based on filter
   const getDateRange = (): { startDate: string; endDate: string } => {
@@ -165,7 +167,9 @@ export const Dashboard: React.FC = () => {
         break;
       case 'custom':
         if (customStartDate && customEndDate) {
-          return { startDate: new Date(customStartDate).toISOString(), endDate: new Date(customEndDate).toISOString() };
+          const start = new Date(`${customStartDate}T${customStartTime || '00:00'}:00`);
+          const end = new Date(`${customEndDate}T${customEndTime || '23:59'}:59`);
+          return { startDate: start.toISOString(), endDate: end.toISOString() };
         }
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         break;
@@ -224,7 +228,7 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [timeFilter, customStartDate, customEndDate]);
+  }, [timeFilter, customStartDate, customEndDate, customStartTime, customEndTime]);
 
   if (loading) {
     return (
@@ -264,13 +268,18 @@ export const Dashboard: React.FC = () => {
         />
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Header with Time Filters and Refresh Button */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="bg-gradient-to-r from-slate-50 to-blue-50 border border-gray-200 rounded-xl p-7 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Laboratory Dashboard</h2>
-              <p className="text-sm text-gray-500 mt-1">Comprehensive analytics and operations overview</p>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-blue-600 rounded-lg">
+                  <Activity className="h-6 w-6 text-white" />
+                </div>
+                <h2 className="text-3xl font-extrabold text-gray-900">Laboratory Dashboard</h2>
+              </div>
+              <p className="text-sm text-gray-600 mt-1 ml-11 font-medium">Comprehensive analytics and operations overview</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -280,10 +289,10 @@ export const Dashboard: React.FC = () => {
                   <button
                     key={filter}
                     onClick={() => setTimeFilter(filter)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                       timeFilter === filter
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:text-blue-600'
                     }`}
                   >
                     {filter === 'today' && 'Today'}
@@ -299,7 +308,7 @@ export const Dashboard: React.FC = () => {
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center justify-center gap-2 px-4 py-1.5 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                className="flex items-center justify-center gap-2 px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-all font-semibold shadow-sm hover:shadow-md"
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                 {refreshing ? 'Refreshing...' : 'Refresh'}
@@ -309,20 +318,32 @@ export const Dashboard: React.FC = () => {
 
           {/* Custom Date Range Picker */}
           {timeFilter === 'custom' && (
-            <div className="mt-4 flex gap-3 items-center">
-              <Calendar className="h-5 w-5 text-gray-400" />
+            <div className="mt-5 flex flex-wrap gap-3 items-center p-4 bg-white rounded-lg border border-gray-200">
+              <Calendar className="h-5 w-5 text-blue-600 flex-shrink-0" />
               <input
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <span className="text-gray-500">to</span>
+              <input
+                type="time"
+                value={customStartTime}
+                onChange={(e) => setCustomStartTime(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-gray-500 font-medium">to</span>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="time"
+                value={customEndTime}
+                onChange={(e) => setCustomEndTime(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           )}
@@ -445,18 +466,23 @@ export const Dashboard: React.FC = () => {
 
       {/* Revenue Section */}
       {revenue && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue Insights</h3>
+        <div className="bg-white border border-gray-200 rounded-xl p-7 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-green-600 rounded-lg">
+              <IndianRupee className="h-6 w-6 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">Revenue Insights</h3>
+          </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Payment Mode Distribution */}
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">By Payment Mode</h4>
-              <div className="space-y-2">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-3 border-b-2 border-blue-100">By Payment Mode</h4>
+              <div className="space-y-3">
                 {revenue.byPaymentMode.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm text-gray-600">{item.payment_mode || 'Unknown'}</span>
-                    <span className="font-medium">₹{parseFloat(item.revenue).toFixed(2)}</span>
+                  <div key={idx} className="flex justify-between items-center p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:shadow-md transition-all">
+                    <span className="text-sm font-semibold text-gray-700">{item.payment_mode || 'Unknown'}</span>
+                    <span className="font-bold text-green-600 text-lg">₹{parseFloat(item.revenue).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -464,16 +490,16 @@ export const Dashboard: React.FC = () => {
 
             {/* Top Clients */}
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">Top B2B Clients (by Balance)</h4>
-              <div className="space-y-2">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-3 border-b-2 border-purple-100">Top B2B Clients (by Balance)</h4>
+              <div className="space-y-3">
                 {revenue.byClient.slice(0, 5).map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm text-gray-600">{item.name}</span>
+                  <div key={idx} className="flex justify-between items-center p-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg border border-gray-200 hover:shadow-md transition-all">
+                    <span className="text-sm font-semibold text-gray-700">{item.name}</span>
                     <div className="flex flex-col items-end">
-                      <span className={`font-medium ${parseFloat(item.balance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className={`font-bold text-lg ${parseFloat(item.balance || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
                         ₹{parseFloat(item.balance || 0).toFixed(2)}
                       </span>
-                      <span className="text-xs text-gray-500">Revenue: ₹{parseFloat(item.total_revenue || 0).toFixed(2)}</span>
+                      <span className="text-xs text-gray-500 font-medium">₹{parseFloat(item.total_revenue || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 ))}
@@ -485,18 +511,23 @@ export const Dashboard: React.FC = () => {
 
       {/* Tests Section */}
       {tests && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Test Analytics</h3>
+        <div className="bg-white border border-gray-200 rounded-xl p-7 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-orange-600 rounded-lg">
+              <TestTube className="h-6 w-6 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">Test Analytics</h3>
+          </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* By Status */}
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">By Status</h4>
-              <div className="space-y-2">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-3 border-b-2 border-yellow-100">By Status</h4>
+              <div className="space-y-3">
                 {tests.byStatus.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm text-gray-600">{item.status}</span>
-                    <span className="font-medium">{item.count}</span>
+                  <div key={idx} className="flex justify-between items-center p-3 bg-gradient-to-r from-gray-50 to-yellow-50 rounded-lg border border-gray-200 hover:shadow-md transition-all">
+                    <span className="text-sm font-semibold text-gray-700">{item.status}</span>
+                    <span className="font-bold text-lg text-yellow-700 bg-yellow-100 px-3 py-1 rounded-lg">{item.count}</span>
                   </div>
                 ))}
               </div>
@@ -504,12 +535,12 @@ export const Dashboard: React.FC = () => {
 
             {/* By Category */}
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">By Category</h4>
-              <div className="space-y-2">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-3 border-b-2 border-blue-100">By Category</h4>
+              <div className="space-y-3">
                 {tests.byCategory.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm text-gray-600">{item.category || 'Unknown'}</span>
-                    <span className="font-medium">{item.count}</span>
+                  <div key={idx} className="flex justify-between items-center p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:shadow-md transition-all">
+                    <span className="text-sm font-semibold text-gray-700">{item.category || 'Unknown'}</span>
+                    <span className="font-bold text-lg text-blue-700 bg-blue-100 px-3 py-1 rounded-lg">{item.count}</span>
                   </div>
                 ))}
               </div>
@@ -517,20 +548,20 @@ export const Dashboard: React.FC = () => {
 
             {/* Top Tests */}
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">Top Tests</h4>
-              <div className="space-y-2">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4 pb-3 border-b-2 border-purple-100">Top Tests</h4>
+              <div className="space-y-3">
                 {tests.byTemplate.slice(0, 5).map((item, idx) => {
                   const params = typeof item.parameters === 'string' ? JSON.parse(item.parameters) : item.parameters;
                   const fieldCount = params?.fields?.length || 0;
                   return (
-                    <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <div className="flex-1">
-                        <span className="text-sm text-gray-600 font-medium">{item.name}</span>
-                        {fieldCount > 0 && (
-                          <p className="text-xs text-gray-500 mt-1">{fieldCount} parameters</p>
-                        )}
+                    <div key={idx} className="p-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg border border-gray-200 hover:shadow-md transition-all">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-semibold text-gray-700">{item.name}</span>
+                        <span className="font-bold text-lg text-purple-700 bg-purple-100 px-3 py-1 rounded-lg">{item.count}</span>
                       </div>
-                      <span className="font-medium text-blue-600">{item.count}</span>
+                      {fieldCount > 0 && (
+                        <p className="text-xs text-gray-600 mt-2 font-medium">📊 {fieldCount} parameters</p>
+                      )}
                     </div>
                   );
                 })}
@@ -542,32 +573,37 @@ export const Dashboard: React.FC = () => {
 
       {/* B2B Clients Section */}
       {clients && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">B2B Client Performance</h3>
+        <div className="bg-white border border-gray-200 rounded-xl p-7 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-indigo-600 rounded-lg">
+              <Users className="h-6 w-6 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">B2B Client Performance</h3>
+          </div>
           
           <div className="overflow-x-auto">
             <table className="min-w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-to-r from-gray-50 to-indigo-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Client Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Visits</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Revenue</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Balance</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Pending Dues</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Client Name</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Visits</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Revenue</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Balance</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Pending Dues</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {clients.clients.map((client, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm text-gray-800">{client.name}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600">{client.visit_count || 0}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600">₹{parseFloat(client.total_revenue || 0).toFixed(2)}</td>
-                    <td className="px-4 py-2 text-sm font-medium">
+                  <tr key={idx} className="hover:bg-blue-50 transition-all">
+                    <td className="px-5 py-3 text-sm font-semibold text-gray-800">{client.name}</td>
+                    <td className="px-5 py-3 text-sm text-gray-600 font-medium">{client.visit_count || 0}</td>
+                    <td className="px-5 py-3 text-sm text-gray-600 font-medium">₹{parseFloat(client.total_revenue || 0).toFixed(2)}</td>
+                    <td className="px-5 py-3 text-sm font-bold">
                       <span className={client.balance > 0 ? 'text-red-600' : 'text-green-600'}>
                         ₹{parseFloat(client.balance).toFixed(2)}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-600">₹{parseFloat(client.pending_dues || 0).toFixed(2)}</td>
+                    <td className="px-5 py-3 text-sm text-gray-600 font-medium">₹{parseFloat(client.pending_dues || 0).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -578,26 +614,39 @@ export const Dashboard: React.FC = () => {
 
       {/* Trends Section */}
       {trends && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Business Trends (Last 30 Days)</h3>
+        <div className="bg-white border border-gray-200 rounded-xl p-7 shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-teal-600 rounded-lg">
+              <TrendingUp className="h-6 w-6 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900">Business Trends (Last 30 Days)</h3>
+          </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Average Revenue */}
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-medium text-gray-700 mb-2">Average Revenue Per Visit</h4>
-              <p className="text-2xl font-bold text-blue-600">₹{parseFloat(trends.averageRevenue.avg_revenue || 0).toFixed(2)}</p>
-              <p className="text-sm text-gray-600 mt-1">Min: ₹{parseFloat(trends.averageRevenue.min_revenue || 0).toFixed(2)}</p>
-              <p className="text-sm text-gray-600">Max: ₹{parseFloat(trends.averageRevenue.max_revenue || 0).toFixed(2)}</p>
+            <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border-2 border-blue-200">
+              <h4 className="text-lg font-bold text-blue-900 mb-3">Average Revenue Per Visit</h4>
+              <p className="text-4xl font-extrabold text-blue-700 mb-3">₹{parseFloat(trends.averageRevenue.avg_revenue || 0).toFixed(2)}</p>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-blue-800">Minimum:</span>
+                  <span className="font-bold text-blue-700">₹{parseFloat(trends.averageRevenue.min_revenue || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-blue-800">Maximum:</span>
+                  <span className="font-bold text-blue-700">₹{parseFloat(trends.averageRevenue.max_revenue || 0).toFixed(2)}</span>
+                </div>
+              </div>
             </div>
 
             {/* Recent Activity */}
             <div>
-              <h4 className="font-medium text-gray-700 mb-3">Recent Activity</h4>
-              <div className="space-y-2">
+              <h4 className="text-lg font-bold text-gray-900 mb-4 pb-3 border-b-2 border-teal-100">Recent Activity (Last 7 Days)</h4>
+              <div className="space-y-3">
                 {trends.visitsTrend.slice(-5).reverse().map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span className="text-sm text-gray-600">{item.date}</span>
-                    <span className="font-medium">{item.count} visits</span>
+                  <div key={idx} className="flex justify-between items-center p-4 bg-gradient-to-r from-gray-50 to-teal-50 rounded-lg border border-gray-200 hover:shadow-md transition-all">
+                    <span className="text-sm font-semibold text-gray-700">{item.date}</span>
+                    <span className="font-bold text-lg text-teal-700 bg-teal-100 px-4 py-2 rounded-lg">{item.count} visits</span>
                   </div>
                 ))}
               </div>
@@ -626,52 +675,57 @@ const MetricCard: React.FC<{
 }) => {
   const colorClasses = {
     blue: {
-      bg: 'bg-white',
+      bg: 'bg-gradient-to-br from-blue-50 to-blue-100',
       border: 'border-blue-200',
-      title: 'text-gray-600',
-      value: 'text-blue-600',
+      title: 'text-blue-600',
+      value: 'text-blue-700',
+      icon: 'bg-blue-600',
     },
     orange: {
-      bg: 'bg-white',
+      bg: 'bg-gradient-to-br from-orange-50 to-orange-100',
       border: 'border-orange-200',
-      title: 'text-gray-600',
-      value: 'text-orange-600',
+      title: 'text-orange-600',
+      value: 'text-orange-700',
+      icon: 'bg-orange-600',
     },
     green: {
-      bg: 'bg-white',
+      bg: 'bg-gradient-to-br from-green-50 to-green-100',
       border: 'border-green-200',
-      title: 'text-gray-600',
-      value: 'text-green-600',
+      title: 'text-green-600',
+      value: 'text-green-700',
+      icon: 'bg-green-600',
     },
     red: {
-      bg: 'bg-white',
+      bg: 'bg-gradient-to-br from-red-50 to-red-100',
       border: 'border-red-200',
-      title: 'text-gray-600',
-      value: 'text-red-600',
+      title: 'text-red-600',
+      value: 'text-red-700',
+      icon: 'bg-red-600',
     },
     purple: {
-      bg: 'bg-white',
+      bg: 'bg-gradient-to-br from-purple-50 to-purple-100',
       border: 'border-purple-200',
-      title: 'text-gray-600',
-      value: 'text-purple-600',
+      title: 'text-purple-600',
+      value: 'text-purple-700',
+      icon: 'bg-purple-600',
     },
   };
 
   const colors = colorClasses[color as keyof typeof colorClasses];
 
   return (
-    <div className={`${colors.bg} border-2 ${colors.border} rounded-lg p-5 shadow-sm hover:shadow-md transition-all`}>
-      <div className="flex items-center justify-between mb-2">
-        <p className={`text-sm font-medium ${colors.title}`}>{title}</p>
+    <div className={`${colors.bg} border-2 ${colors.border} rounded-xl p-6 shadow-sm hover:shadow-lg transition-all duration-300 transform hover:scale-105`}>
+      <div className="flex items-center justify-between mb-3">
+        <p className={`text-sm font-semibold ${colors.title} uppercase tracking-wider`}>{title}</p>
         {trend && (
-          <div className={`flex items-center gap-1 text-xs font-medium ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          <div className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${trend.isPositive ? 'bg-green-200 text-green-700' : 'bg-red-200 text-red-700'}`}>
             {trend.isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {Math.abs(trend.value)}%
           </div>
         )}
       </div>
-      <p className={`text-3xl font-bold ${colors.value} mb-1`}>{value}</p>
-      {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+      <p className={`text-4xl font-extrabold ${colors.value} mb-2`}>{value}</p>
+      {subtitle && <p className="text-xs text-gray-600 font-medium">{subtitle}</p>}
     </div>
   );
 };
@@ -686,22 +740,28 @@ const QueueCard: React.FC<{
 }> = ({ title, description, count, color, onClick }) => {
   const colorClasses = {
     yellow: {
-      bg: 'bg-amber-50',
+      bg: 'bg-gradient-to-br from-amber-50 to-amber-100',
       border: 'border-amber-300',
-      hover: 'hover:border-amber-400 hover:shadow-lg',
+      hover: 'hover:shadow-xl hover:scale-105',
       countColor: 'text-amber-700',
+      titleColor: 'text-amber-900',
+      icon: 'bg-amber-600 text-amber-100',
     },
     blue: {
-      bg: 'bg-blue-50',
+      bg: 'bg-gradient-to-br from-blue-50 to-blue-100',
       border: 'border-blue-300',
-      hover: 'hover:border-blue-400 hover:shadow-lg',
+      hover: 'hover:shadow-xl hover:scale-105',
       countColor: 'text-blue-700',
+      titleColor: 'text-blue-900',
+      icon: 'bg-blue-600 text-blue-100',
     },
     green: {
-      bg: 'bg-emerald-50',
+      bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100',
       border: 'border-emerald-300',
-      hover: 'hover:border-emerald-400 hover:shadow-lg',
+      hover: 'hover:shadow-xl hover:scale-105',
       countColor: 'text-emerald-700',
+      titleColor: 'text-emerald-900',
+      icon: 'bg-emerald-600 text-emerald-100',
     },
   };
 
@@ -710,18 +770,18 @@ const QueueCard: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`w-full p-6 rounded-lg border-2 transition-all cursor-pointer text-left ${colors.bg} ${colors.border} ${colors.hover}`}
+      className={`w-full p-6 rounded-xl border-2 transition-all duration-300 cursor-pointer text-left ${colors.bg} ${colors.border} ${colors.hover}`}
     >
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-lg font-semibold text-gray-900">{title}</h4>
-        <span className={`text-4xl font-bold ${colors.countColor}`}>
+        <h4 className={`text-lg font-bold ${colors.titleColor}`}>{title}</h4>
+        <span className={`text-5xl font-extrabold ${colors.countColor} opacity-90`}>
           {count}
         </span>
       </div>
-      <p className="text-sm text-gray-600 mb-3">{description}</p>
-      <p className="text-xs text-gray-500 flex items-center gap-1">
-        Click to view details →
-      </p>
+      <p className="text-sm text-gray-700 font-medium mb-3">{description}</p>
+      <div className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+        <span>→ View Details</span>
+      </div>
     </button>
   );
 };
