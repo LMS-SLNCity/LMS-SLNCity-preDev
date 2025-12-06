@@ -8,7 +8,10 @@ interface DateFilterProps {
   onFilterChange: (filter: DateFilterOption) => void;
   customStartDate?: string;
   customEndDate?: string;
+  customStartTime?: string;
+  customEndTime?: string;
   onCustomDateChange?: (startDate: string, endDate: string) => void;
+  onCustomTimeChange?: (startTime: string, endTime: string) => void;
 }
 
 export const DateFilter: React.FC<DateFilterProps> = ({
@@ -16,7 +19,10 @@ export const DateFilter: React.FC<DateFilterProps> = ({
   onFilterChange,
   customStartDate = '',
   customEndDate = '',
+  customStartTime = '00:00',
+  customEndTime = '23:59',
   onCustomDateChange,
+  onCustomTimeChange,
 }) => {
   return (
     <div className="flex flex-col gap-3">
@@ -79,7 +85,7 @@ export const DateFilter: React.FC<DateFilterProps> = ({
       </div>
 
       {selectedFilter === 'custom' && onCustomDateChange && (
-        <div className="flex gap-3 items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
+        <div className="flex flex-wrap gap-4 items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-600">Start Date</label>
             <input
@@ -98,6 +104,28 @@ export const DateFilter: React.FC<DateFilterProps> = ({
               className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          {onCustomTimeChange && (
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">Start Time</label>
+                <input
+                  type="time"
+                  value={customStartTime}
+                  onChange={(e) => onCustomTimeChange(e.target.value, customEndTime)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">End Time</label>
+                <input
+                  type="time"
+                  value={customEndTime}
+                  onChange={(e) => onCustomTimeChange(customStartTime, e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

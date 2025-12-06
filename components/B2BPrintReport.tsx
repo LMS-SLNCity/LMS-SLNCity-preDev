@@ -52,36 +52,47 @@ export const B2BPrintReport: React.FC = () => {
       if (response.ok) {
         const allVisits = await response.json();
 
-        console.log('📊 Fetched visits:', allVisits.length);
-        console.log('🔍 Filtering for client ID:', clientId);
-
         // The API should already filter for B2B clients, but double-check
         const clientVisits = allVisits
-          .filter((v: any) => {
-            const matches = v.ref_customer_id === parseInt(clientId);
-            if (!matches) {
-              console.warn('⚠️ Visit does not belong to this client:', v.id, 'ref_customer_id:', v.ref_customer_id);
-            }
-            return matches;
-          })
-          .map((v: any) => ({
-            id: v.id,
-            visitCode: v.visit_code,
-            registrationDatetime: v.registration_datetime,
-            patientName: v.patient?.name || 'Unknown',
-            patientAge: `${v.patient?.age_years || 0}Y ${v.patient?.age_months || 0}M`,
-            patientSex: v.patient?.sex || 'Unknown',
-            totalCost: v.total_cost,
-            reportStatus: v.report_status || 'PENDING',
-          }));
+          .filter((v: any) => v.ref_customer_id === parseInt(clientId))
+          .map((v: any) => {
+            // Calculate report status based on test statuses
+            const tests = v.tests || [];
+            let reportStatus = 'PENDING';
 
-        console.log('✅ Filtered visits for client:', clientVisits.length);
+            if (tests.length > 0) {
+              const allApproved = tests.every((t: any) => t.status === 'APPROVED' || t.status === 'PRINTED');
+              const anyPrinted = tests.some((t: any) => t.status === 'PRINTED');
+              const anyAwaiting = tests.some((t: any) => t.status === 'AWAITING_APPROVAL');
+
+              if (anyPrinted) {
+                reportStatus = 'PRINTED';
+              } else if (allApproved) {
+                reportStatus = 'APPROVED';
+              } else if (anyAwaiting) {
+                reportStatus = 'AWAITING_APPROVAL';
+              } else {
+                reportStatus = 'PENDING';
+              }
+            }
+
+            return {
+              id: v.id,
+              visitCode: v.visit_code,
+              registrationDatetime: v.registration_datetime,
+              patientName: v.patient?.name || 'Unknown',
+              patientAge: `${v.patient?.age_years || 0}Y ${v.patient?.age_months || 0}M`,
+              patientSex: v.patient?.sex || 'Unknown',
+              totalCost: v.total_cost,
+              reportStatus,
+            };
+          });
+
         setVisits(clientVisits);
       } else {
         setError('Failed to load visits');
       }
     } catch (error) {
-      console.error('Error fetching visits:', error);
       setError('Failed to load visits');
     } finally {
       setLoading(false);
@@ -109,7 +120,6 @@ export const B2BPrintReport: React.FC = () => {
       setSelectedVisit(fullVisit);
       setSelectedSignatory(signatory);
     } catch (error) {
-      console.error('Error opening report:', error);
       alert('Failed to open report');
     }
   };

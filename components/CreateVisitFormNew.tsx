@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { PatientSearchModal } from './PatientSearchModal';
 import { SearchableSelect } from './form/SearchableSelect';
+import { B2BApprovalQueue } from './B2BApprovalQueue';
 import { API_BASE_URL } from '../config/api';
 import { StatusBadgeFromTest } from './StatusBadge';
 import { DateFilter, DateFilterOption, filterByDate } from './DateFilter';
@@ -282,6 +283,9 @@ export const CreateVisitFormNew: React.FC<CreateVisitFormNewProps> = ({ onInitia
 
   return (
     <>
+      {/* B2B Approval Queue - Shows at the top if there are pending requests */}
+      <B2BApprovalQueue />
+
       <div className="h-[calc(100vh-140px)] overflow-hidden bg-gray-50">
         <form onSubmit={handleSubmit} className="h-full flex flex-col">
           {/* Header with Full Branding */}
@@ -640,7 +644,8 @@ export const CreateVisitFormNew: React.FC<CreateVisitFormNewProps> = ({ onInitia
             </thead>
             <tbody className="divide-y divide-gray-200">
               {sortedVisits.map(visit => {
-                const visitTestsForVisit = visit.tests.map(testId => visitTests.find(vt => vt.id === testId)).filter(Boolean) as VisitTest[];
+                const visitTestIds = visit.tests.map((t: any) => typeof t === 'number' ? t : t.id);
+                const visitTestsForVisit = visitTestIds.map(testId => visitTests.find(vt => vt.id === testId)).filter(Boolean) as VisitTest[];
                 const client = clients.find(c => c.id === visit.ref_customer_id);
                 const isB2BVisit = client?.type === 'REFERRAL_LAB';
                 // Allow printing for both APPROVED and PRINTED statuses (for reprinting)

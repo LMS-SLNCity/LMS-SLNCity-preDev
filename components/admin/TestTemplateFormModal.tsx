@@ -32,18 +32,26 @@ export const TestTemplateFormModal: React.FC<TestTemplateFormModalProps> = ({ te
     console.log('Units in TestTemplateFormModal:', units, 'Length:', units?.length);
 
     const isCultureTest = formData.reportType === 'culture';
+    const isFluidTest = formData.reportType === 'fluid';
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
 
         if (name === 'reportType') {
-            const newReportType = value as 'standard' | 'culture';
-            setFormData(prev => ({
-                ...prev,
-                reportType: newReportType,
-                parameters: newReportType === 'culture' ? { fields: [] } : prev.parameters,
-                defaultAntibioticIds: newReportType !== 'culture' ? [] : prev.defaultAntibioticIds,
-            }));
+            const newReportType = value as 'standard' | 'culture' | 'fluid';
+            setFormData(prev => {
+                // Only reset fields if switching from standard to fluid/culture
+                let newFields = prev.parameters.fields;
+                if ((prev.reportType === 'standard') && (newReportType === 'fluid' || newReportType === 'culture')) {
+                    newFields = [];
+                }
+                return {
+                    ...prev,
+                    reportType: newReportType,
+                    parameters: { fields: newFields },
+                    defaultAntibioticIds: newReportType !== 'culture' ? [] : prev.defaultAntibioticIds,
+                };
+            });
         } else {
             setFormData(prev => ({
                 ...prev,
@@ -70,7 +78,11 @@ export const TestTemplateFormModal: React.FC<TestTemplateFormModalProps> = ({ te
     }
 
     const addParameter = () => {
-        const newParameter: TestTemplateParameter = { name: '', type: 'text', unit: '', reference_range: '' };
+        // For fluid tests, default to 'section' type; for others, default to 'text' type
+        const defaultType = isFluidTest ? 'section' : 'text';
+        const newParameter: TestTemplateParameter = isFluidTest 
+            ? { name: '', type: 'section' as any, subtitle: '' }
+            : { name: '', type: 'text', unit: '', reference_range: '' };
         setFormData(prev => ({ ...prev, parameters: { fields: [...prev.parameters.fields, newParameter] }}));
     };
 
@@ -96,6 +108,7 @@ export const TestTemplateFormModal: React.FC<TestTemplateFormModalProps> = ({ te
     const reportTypeOptions: {label: string, value: TestTemplate['reportType']}[] = [
         { label: 'Standard Report', value: 'standard' },
         { label: 'Culture & Sensitivity Report', value: 'culture' },
+        { label: 'Fluid / Descriptive Report', value: 'fluid' },
     ];
     
     const activeAntibiotics = antibiotics.filter(ab => ab.isActive);
@@ -151,6 +164,38 @@ export const TestTemplateFormModal: React.FC<TestTemplateFormModalProps> = ({ te
                                             ))}
                                         </div>
                                     </div>
+                                </div>
+                            ) : isFluidTest ? (
+                                <div className="space-y-2">
+                                    <h4 className="text-md font-semibold text-gray-700 mb-2 border-t border-gray-200 pt-4">Report Structure (Optional)</h4>
+                                    <p className="text-sm text-gray-600 mb-3">Define sections with headings for structured fluid reports. Leave empty for simple text-only observation.</p>
+                                    <div className="space-y-3">
+                                        {formData.parameters.fields.map((param, index) => (
+                                            <div key={index} className="grid grid-cols-12 gap-2 items-start p-2 rounded-md bg-gray-50 border border-gray-200">
+                                                <div className="col-span-12 sm:col-span-4">
+                                                    <input type="text" placeholder="Section Name" value={param.name} onChange={e => handleParamChange(index, 'name', e.target.value)} className="w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-brand-primary focus:border-brand-primary" />
+                                                </div>
+                                                <div className="col-span-12 sm:col-span-3">
+                                                    <select value={param.type} onChange={e => handleParamChange(index, 'type', e.target.value)} className="w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-brand-primary focus:border-brand-primary">
+                                                        <option value="heading">Heading</option>
+                                                        <option value="section">Sidebar Section</option>
+                                                    </select>
+                                                </div>
+                                                <div className="col-span-11 sm:col-span-4">
+                                                    <input type="text" placeholder="Subtitle/Label (optional)" value={param.subtitle || ''} onChange={e => handleParamChange(index, 'subtitle', e.target.value)} className="w-full px-2 py-1 text-sm border-gray-300 rounded-md focus:ring-brand-primary focus:border-brand-primary" />
+                                                </div>
+                                                <div className="col-span-1 flex justify-end">
+                                                    <button type="button" onClick={() => removeParameter(index)} className="text-red-500 hover:text-red-700">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button type="button" onClick={addParameter} className="mt-3 text-sm text-brand-primary font-semibold hover:text-brand-primary_hover flex items-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" /></svg>
+                                        Add Section
+                                    </button>
                                 </div>
                             ) : (
                                 <div>

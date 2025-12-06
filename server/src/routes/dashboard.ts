@@ -30,8 +30,12 @@ router.get('/overview', async (req: Request, res: Response) => {
     const revenueResult = await pool.query(`SELECT SUM(total_cost) as total_revenue FROM visits ${dateFilterVisits}`, params);
     const totalRevenue = parseFloat(revenueResult.rows[0].total_revenue) || 0;
 
-    // Get total tests performed
-    const testsResult = await pool.query(`SELECT COUNT(*) as total_tests FROM visit_tests ${dateFilterTests}`, params);
+    // Get total tests performed (excluding cancelled)
+    let testsQuery = `SELECT COUNT(*) as total_tests FROM visit_tests WHERE status != 'CANCELLED'`;
+    if (startDate && endDate) {
+      testsQuery += ` AND created_at >= $1 AND created_at <= $2`;
+    }
+    const testsResult = await pool.query(testsQuery, params);
     const totalTests = parseInt(testsResult.rows[0].total_tests);
 
     // Get total B2B clients
@@ -159,11 +163,11 @@ router.get('/tests', async (req: Request, res: Response) => {
       params.push(startDate, endDate);
     }
 
-    // Get tests by template
+    // Get tests by template (excluding cancelled)
     let byTemplateQuery = `
       SELECT tt.id, tt.name, tt.code, tt.category, tt.parameters, COUNT(vt.id) as count
       FROM test_templates tt
-      LEFT JOIN visit_tests vt ON tt.id = vt.test_template_id`;
+      LEFT JOIN visit_tests vt ON tt.id = vt.test_template_id AND vt.status != 'CANCELLED'`;
     if (startDate && endDate) {
       byTemplateQuery += ` AND vt.created_at >= $1 AND vt.created_at <= $2`;
     }
@@ -184,11 +188,11 @@ router.get('/tests', async (req: Request, res: Response) => {
       ORDER BY count DESC`;
     const byStatusResult = await pool.query(byStatusQuery, params);
 
-    // Get tests by category
+    // Get tests by category (excluding cancelled)
     let byCategoryQuery = `
       SELECT tt.category, COUNT(vt.id) as count
       FROM test_templates tt
-      LEFT JOIN visit_tests vt ON tt.id = vt.test_template_id`;
+      LEFT JOIN visit_tests vt ON tt.id = vt.test_template_id AND vt.status != 'CANCELLED'`;
     if (startDate && endDate) {
       byCategoryQuery += ` AND vt.created_at >= $1 AND vt.created_at <= $2`;
     }
@@ -272,14 +276,18 @@ router.get('/trends', async (req: Request, res: Response) => {
       ORDER BY date ASC
     `, params);
 
-    // Get tests trend
-    const testsTrendResult = await pool.query(`
+    // Get tests trend (excluding cancelled)
+    let testsTrendQuery = `
       SELECT DATE(created_at) as date, COUNT(*) as count
       FROM visit_tests
-      ${dateFilter}
+      WHERE status != 'CANCELLED'`;
+    if (startDate && endDate) {
+      testsTrendQuery += ` AND created_at >= $1 AND created_at <= $2`;
+    }
+    testsTrendQuery += `
       GROUP BY DATE(created_at)
-      ORDER BY date ASC
-    `, params);
+      ORDER BY date ASC`;
+    const testsTrendResult = await pool.query(testsTrendQuery, params);
 
     // Get average revenue per visit
     const avgRevenueResult = await pool.query(`

@@ -618,7 +618,9 @@ export const CreateVisitForm: React.FC<CreateVisitFormProps> = ({ onInitiateRepo
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                         {sortedVisits.map(visit => {
-                           const visitTestsForVisit = visit.tests.map(testId => visitTests.find(vt => vt.id === testId)).filter(Boolean) as VisitTest[];
+                          // visit.tests may be array of objects from API; normalize to IDs
+                          const visitTestIds = visit.tests.map((t: any) => typeof t === 'number' ? t : t.id);
+                          const visitTestsForVisit = visitTestIds.map(testId => visitTests.find(vt => vt.id === testId)).filter(Boolean) as VisitTest[];
                            const client = clients.find(c => c.id === visit.ref_customer_id);
                            const isB2BVisit = client?.type === 'REFERRAL_LAB';
                            const allTestsApproved = visitTestsForVisit.length > 0 && visitTestsForVisit.every(vt => vt.status === 'APPROVED');

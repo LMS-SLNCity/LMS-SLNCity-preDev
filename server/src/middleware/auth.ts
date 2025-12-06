@@ -35,8 +35,21 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
         id: number;
         username: string;
         role: string;
+        location_id?: number;
+        clientId?: number;
+        clientName?: string;
       };
-      req.user = decoded;
+      req.user = {
+        id: decoded.id,
+        username: decoded.username,
+        role: decoded.role,
+        // include location if present in token
+        ...(decoded.location_id ? { location_id: decoded.location_id } : {}),
+        // include clientId if present in token (for B2B clients)
+        ...(decoded.clientId ? { clientId: decoded.clientId } : {}),
+        // include clientName if present in token (for B2B clients)
+        ...(decoded.clientName ? { clientName: decoded.clientName } : {})
+      } as any;
       next();
     } catch (error) {
       return res.status(401).json({ error: 'Invalid or expired token' });

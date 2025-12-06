@@ -6,6 +6,7 @@ import { Navbar, View } from './Navbar';
 import { ApproverQueue } from './ApproverQueue';
 import { AdminPanel } from './AdminPanel';
 import { B2BClientDashboard } from './B2BClientDashboard';
+import { B2BRequestVisit } from './B2BRequestVisit';
 import { ReportModal } from './ReportModal';
 import { SignatorySelectionModal } from './SignatorySelectionModal';
 import { DueCollectionModal } from './DueCollectionModal';
@@ -22,6 +23,7 @@ interface MainLayoutProps {
 
 const viewOrder: { view: View; permission: Permission }[] = [
     { view: 'b2b-dashboard', permission: 'VIEW_B2B_DASHBOARD' },
+    { view: 'b2b-request-visit', permission: 'REQUEST_VISIT' },
     { view: 'reception', permission: 'VIEW_RECEPTION' },
     { view: 'phlebotomy', permission: 'VIEW_PHLEBOTOMY' },
     { view: 'lab', permission: 'VIEW_LAB' },
@@ -207,6 +209,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ user }) => {
           </div>
         )}
         {currentView === 'b2b-dashboard' && <B2BClientDashboard />}
+        {currentView === 'b2b-request-visit' && <B2BRequestVisit />}
         {currentView === 'reception' && <CreateVisitFormNew onInitiateReport={handleInitiateReport} />}
         {currentView === 'phlebotomy' && <PhlebotomyQueue onInitiateReport={handleInitiateReport} />}
         {currentView === 'lab' && <LabQueue onInitiateReport={handleInitiateReport} />}

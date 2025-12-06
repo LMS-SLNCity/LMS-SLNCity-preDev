@@ -4,12 +4,65 @@ import { Visit, Signatory, VisitTest } from '../types';
 import { API_BASE_URL } from '../config/api';
 import { FileText, Clock, User, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 import { AppProvider } from '../context/AppContext';
+import { TestReport } from './TestReport';
 
 // Standalone TestReport component for public view (doesn't use AppContext)
-const PublicTestReport: React.FC<{ visit: Visit; signatory: Signatory; visitTests: VisitTest[] }> = ({ visit, signatory, visitTests }) => {
-  // This is a simplified version that doesn't need AppContext
-  // We'll import the actual TestReport and wrap it with a provider
-  return null; // Placeholder - will be replaced with actual report rendering
+const PublicTestReport: React.FC<{ visit: any; signatory?: Signatory | null; visitTests: any[] }> = ({ visit, signatory, visitTests }) => {
+  // Normalize API payload into shapes expected by TestReport
+  const normalizedTests: VisitTest[] = (visitTests || []).map((t: any) => {
+    const tpl = t.template || {};
+    const templateParameters = tpl.parameters?.fields ? tpl.parameters : { fields: tpl.parameters?.fields ?? tpl.parameters ?? [] };
+
+    const normalizedReportType = (tpl.reportType || tpl.report_type || 'standard').toString().toLowerCase();
+
+    return {
+      id: t.id,
+      visitId: t.visit_id ?? t.visitId ?? visit.id,
+      patientName: visit?.patient?.name || '',
+      visitCode: visit?.visit_code || visit?.visitCode || '',
+      referredDoctorName: visit?.referred_doctor?.name || visit?.referred_doctor_name || '',
+      referredDoctorDesignation: visit?.referred_doctor?.designation || visit?.referred_doctor_designation || '',
+      otherRefDoctor: visit?.other_ref_doctor || visit?.otherRefDoctor,
+      template: {
+        id: tpl.id,
+        code: tpl.code,
+        name: tpl.name,
+        category: tpl.category || 'General',
+        price: tpl.price ?? 0,
+        b2b_price: tpl.b2b_price ?? tpl.b2bPrice ?? 0,
+        isActive: tpl.isActive ?? tpl.is_active ?? true,
+        parameters: templateParameters,
+        reportType: normalizedReportType,
+        defaultAntibioticIds: tpl.defaultAntibioticIds || tpl.default_antibiotic_ids || [],
+        sampleType: tpl.sampleType || tpl.sample_type,
+        tatHours: tpl.tatHours || tpl.tat_hours,
+      },
+      status: t.status,
+      collectedBy: t.collected_by ?? t.collectedBy,
+      collectedAt: t.collected_at ?? t.collectedAt,
+      specimen_type: t.specimen_type ?? t.specimenType,
+      results: t.results,
+      cultureResult: t.culture_result ?? t.cultureResult,
+      enteredBy: t.entered_by ?? t.enteredBy,
+      enteredAt: t.entered_at ?? t.enteredAt,
+      approvedBy: t.approved_by ?? t.approvedBy,
+      approvedAt: t.approved_at ?? t.approvedAt,
+      rejection_count: t.rejection_count ?? t.rejectionCount,
+      last_rejection_at: t.last_rejection_at ?? t.lastRejectionAt,
+      created_at: t.created_at ?? t.createdAt,
+    } as VisitTest;
+  });
+
+  const normalizedVisit: Visit = {
+    ...(visit as Visit),
+    tests: normalizedTests.map((t) => t.id),
+  };
+
+  return (
+    <AppProvider>
+      <TestReport visit={normalizedVisit} visitTests={normalizedTests} signatory={signatory || null} />
+    </AppProvider>
+  );
 };
 
 export const PublicReportView: React.FC = () => {
@@ -94,7 +147,10 @@ export const PublicReportView: React.FC = () => {
     return null;
   }
 
-  const { visit: visitData, signatory, antibiotics } = reportData;
+  const { visit: visitData, signatory } = reportData;
+
+  // Normalize tests for the shared TestReport component
+  const visitTestsForReport = visitData?.tests || [];
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -186,110 +242,10 @@ export const PublicReportView: React.FC = () => {
         </div>
       )}
 
-      {/* Report Content - Render the actual report using a simple HTML view */}
+      {/* Report Content - Use shared TestReport for consistent layout */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden p-8">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Laboratory Report</h2>
-            <p className="text-gray-600">Visit Code: {visitData.visit_code}</p>
-          </div>
-
-          <div className="mb-6 grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-gray-600">Patient Name:</p>
-              <p className="font-semibold">{visitData.patient.salutation} {visitData.patient.name}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Age/Sex:</p>
-              <p className="font-semibold">
-                {visitData.patient.age_years}Y {visitData.patient.age_months || 0}M {visitData.patient.age_days || 0}D / {visitData.patient.sex}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600">Registration Date:</p>
-              <p className="font-semibold">{formatTimestamp(visitData.registration_datetime)}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">Referred By:</p>
-              <p className="font-semibold">{visitData.referred_doctor?.name || visitData.other_ref_doctor || 'N/A'}</p>
-            </div>
-          </div>
-
-          {/* Test Results */}
-          <div className="mt-8">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Test Results</h3>
-            {visitData.tests.map((test: any) => (
-              <div key={test.id} className="mb-6 border-t pt-4">
-                <h4 className="font-bold text-lg text-gray-800 mb-3">{test.template.name}</h4>
-                {test.template.reportType === 'STANDARD' && test.results && (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="text-left p-2 border">Parameter</th>
-                        <th className="text-left p-2 border">Result</th>
-                        <th className="text-left p-2 border">Unit</th>
-                        <th className="text-left p-2 border">Reference Range</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {test.template.parameters.map((param: any, idx: number) => {
-                        if (param.type === 'heading') {
-                          return (
-                            <tr key={idx}>
-                              <td colSpan={4} className="p-2 bg-gray-50 font-semibold text-gray-700 border">
-                                {param.name}
-                              </td>
-                            </tr>
-                          );
-                        }
-                        return (
-                          <tr key={idx}>
-                            <td className="p-2 border">{param.name}</td>
-                            <td className="p-2 border font-semibold">{test.results[param.name] || '-'}</td>
-                            <td className="p-2 border">{param.unit || '-'}</td>
-                            <td className="p-2 border">{param.referenceRange || '-'}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-                {test.template.reportType === 'CULTURE' && test.culture_result && (
-                  <div className="text-sm">
-                    <p className="mb-2"><strong>Culture Result:</strong> {test.culture_result.organism || 'N/A'}</p>
-                    <p className="mb-2"><strong>Colony Count:</strong> {test.culture_result.colonyCount || 'N/A'}</p>
-                    {test.culture_result.antibioticSensitivity && (
-                      <div className="mt-4">
-                        <p className="font-semibold mb-2">Antibiotic Sensitivity:</p>
-                        <table className="w-full">
-                          <thead>
-                            <tr className="bg-gray-100">
-                              <th className="text-left p-2 border">Antibiotic</th>
-                              <th className="text-left p-2 border">Sensitivity</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Object.entries(test.culture_result.antibioticSensitivity).map(([antibiotic, sensitivity]) => (
-                              <tr key={antibiotic}>
-                                <td className="p-2 border">{antibiotic}</td>
-                                <td className="p-2 border">{sensitivity as string}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Signatory */}
-          <div className="mt-8 pt-6 border-t text-right">
-            <p className="font-semibold">{signatory.name}</p>
-            <p className="text-sm text-gray-600">{signatory.title}</p>
-          </div>
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden p-4 md:p-8">
+          <PublicTestReport visit={visitData} signatory={signatory} visitTests={visitTestsForReport} />
         </div>
       </div>
 

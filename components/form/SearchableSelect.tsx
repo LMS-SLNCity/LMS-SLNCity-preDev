@@ -32,7 +32,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   // Filter options based on search term - search in both label and searchText
   const filteredOptions = options.filter(option => {
-    const searchIn = option.searchText || option.label;
+    const searchIn = option.searchText || option.label || '';
     return searchIn.toLowerCase().includes(searchTerm.toLowerCase());
   });
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Role } from '../types';
 
-export type View = 'b2b-dashboard' | 'reception' | 'phlebotomy' | 'lab' | 'approver' | 'admin';
+export type View = 'b2b-dashboard' | 'b2b-request-visit' | 'reception' | 'phlebotomy' | 'lab' | 'approver' | 'admin';
 
 interface NavbarProps {
   currentView: View;
@@ -37,6 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView, all
   
   const viewLabels: Record<View, string> = {
       'b2b-dashboard': 'Dashboard',
+      'b2b-request-visit': 'Request Visit',
       reception: 'Reception',
       phlebotomy: 'Phlebotomy',
       lab: 'Lab',

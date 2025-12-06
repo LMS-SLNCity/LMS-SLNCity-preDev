@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Role, User } from '../../types';
 import { Input } from '../form/Input';
@@ -8,6 +8,11 @@ import { SignatureUploadModal } from './SignatureUploadModal';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/api';
 
+interface Location {
+    id: number;
+    name: string;
+}
+
 export const UserManagement: React.FC = () => {
     const { users, addUser, reloadData } = useAppContext();
     const { user: actor } = useAuth();
@@ -15,8 +20,61 @@ export const UserManagement: React.FC = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState<Role>('RECEPTION');
+    const [locationId, setLocationId] = useState<number | null>(null);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [uploadingSignatureFor, setUploadingSignatureFor] = useState<User | null>(null);
+    const [locations, setLocations] = useState<Location[]>([]);
+    const [updatingLocationFor, setUpdatingLocationFor] = useState<number | null>(null);
+
+    const handleUpdateLocation = async (userId: number, newLocationId: number | null) => {
+        setUpdatingLocationFor(userId);
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({ location_id: newLocationId }),
+            });
+
+            if (response.ok) {
+                await reloadData();
+                alert('Location assigned successfully');
+            } else {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || 'Failed to update location');
+            }
+        } catch (error) {
+            console.error('Error updating location:', error);
+            alert(`Failed to update location: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setUpdatingLocationFor(null);
+        }
+    };
+
+    const getLocationName = (locationId: number | null) => {
+        if (!locationId) return 'Unassigned';
+        const location = locations.find(l => l.id === locationId);
+        return location ? location.name : 'Unknown';
+    };
+
+    // Fetch locations on mount
+    useEffect(() => {
+        const fetchLocations = async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/public/locations`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setLocations(data);
+                }
+            } catch (error) {
+                console.error('Error fetching locations:', error);
+            }
+        };
+        fetchLocations();
+    }, []);
 
     const handleDeleteUser = async (userToDelete: User) => {
         if (!actor) {
@@ -37,7 +95,7 @@ export const UserManagement: React.FC = () => {
         if (!confirmDelete) return;
 
         try {
-            const authToken = localStorage.getItem('authToken');
+            const authToken = sessionStorage.getItem('authToken');
             const response = await fetch(`${API_BASE_URL}/users/${userToDelete.id}`, {
                 method: 'DELETE',
                 headers: {
@@ -69,10 +127,11 @@ export const UserManagement: React.FC = () => {
             return;
         }
         try {
-            await addUser({ username, password_hash: password, role }, actor);
+            await addUser({ username, password_hash: password, role, location_id: locationId }, actor);
             setUsername('');
             setPassword('');
             setRole('RECEPTION');
+            setLocationId(null);
             alert('User created successfully');
         } catch (error) {
             console.error('Failed to create user:', error);
@@ -106,6 +165,7 @@ export const UserManagement: React.FC = () => {
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Username</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Permissions</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Signature</th>
@@ -118,6 +178,25 @@ export const UserManagement: React.FC = () => {
                                     <td className="px-4 py-3 text-sm text-gray-600">{user.id}</td>
                                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{user.username}</td>
                                     <td className="px-4 py-3 text-sm text-gray-600">{user.role}</td>
+                                    <td className="px-4 py-3 text-sm">
+                                        {user.role === 'SUDO' ? (
+                                            <span className="px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-800">
+                                                🔑 All Branches
+                                            </span>
+                                        ) : (
+                                            <select
+                                                value={(user as any).location_id ?? ''}
+                                                onChange={(e) => handleUpdateLocation(user.id, e.target.value ? Number(e.target.value) : null)}
+                                                disabled={updatingLocationFor === user.id}
+                                                className="px-2 py-1 text-xs border border-gray-300 rounded bg-white hover:bg-gray-50 disabled:bg-gray-100"
+                                            >
+                                                <option value="">Unassigned</option>
+                                                {locations.map(loc => (
+                                                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </td>
                                     <td className="px-4 py-3 text-sm">
                                         <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                             {user.isActive ? 'Active' : 'Inactive'}
@@ -192,6 +271,21 @@ export const UserManagement: React.FC = () => {
                     <Input label="Username" name="username" value={username} onChange={e => setUsername(e.target.value)} required />
                     <Input label="Password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
                     <Select label="Role (template)" name="role" value={role} onChange={e => setRole(e.target.value as Role)} options={roleOptions} required />
+                    {role !== 'SUDO' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Location / Branch (Optional)</label>
+                            <select
+                                value={locationId ?? ''}
+                                onChange={(e) => setLocationId(e.target.value ? Number(e.target.value) : null)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
+                            >
+                                <option value="">-- No Location (Unassigned) --</option>
+                                {locations.map(loc => (
+                                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     <button type="submit" className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-brand-primary text-white font-semibold rounded-lg shadow-md hover:bg-brand-primary_hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
