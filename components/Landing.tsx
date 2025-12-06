@@ -1,648 +1,303 @@
-// import React, { useEffect } from 'react';
-// import { useNavigate } from 'react-router-dom';
-// import './Landing.css';
-
-// export const Landing: React.FC = () => {
-//     const navigate = useNavigate();
-
-//     useEffect(() => {
-//         // Smooth scroll behavior
-//         document.documentElement.style.scrollBehavior = 'smooth';
-
-//         // Mobile menu toggle
-//         const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-//         const navbarMenu = document.getElementById('navbarMenu');
-
-//         if (mobileMenuBtn && navbarMenu) {
-//             mobileMenuBtn.addEventListener('click', () => {
-//                 navbarMenu.classList.toggle('active');
-//             });
-
-//             const navLinks = navbarMenu.querySelectorAll('.nav-link');
-//             navLinks.forEach(link => {
-//                 link.addEventListener('click', () => {
-//                     navbarMenu.classList.remove('active');
-//                 });
-//             });
-//         }
-
-//         // Intersection Observer for fade-in animations
-//         const observerOptions = {
-//             threshold: 0.1,
-//             rootMargin: '0px 0px -50px 0px'
-//         };
-
-//         const observer = new IntersectionObserver((entries) => {
-//             entries.forEach(entry => {
-//                 if (entry.isIntersecting) {
-//                     entry.target.classList.add('visible');
-//                     observer.unobserve(entry.target);
-//                 }
-//             });
-//         }, observerOptions);
-
-//         document.querySelectorAll('.feature-card, .service-card').forEach(card => {
-//             card.classList.add('fade-in');
-//             observer.observe(card);
-//         });
-
-//         return () => {
-//             observer.disconnect();
-//         };
-//     }, []);
-
-//     const handleCtaClick = (action: string) => {
-//         if (action === 'book') {
-//             navigate('/login');
-//         } else if (action === 'menu') {
-//             navigate('/tests');
-//         }
-//     };
-
-//     return (
-//         <>
-//             <style>{`
-//                 .fade-in {
-//                     opacity: 0;
-//                     transform: translateY(20px);
-//                     transition: opacity 0.6s ease, transform 0.6s ease;
-//                 }
-
-//                 .fade-in.visible {
-//                     opacity: 1;
-//                     transform: translateY(0);
-//                 }
-//             `}</style>
-
-//             {/* Navigation */}
-//             <nav className="navbar">
-//                 <div className="navbar-container">
-//                     <div className="navbar-logo">
-//                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-//                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
-//                             <path d="M12 6v6l4 2"/>
-//                         </svg>
-//                         <span>SLNCity Diagnostics</span>
-//                     </div>
-
-//                     <button className="mobile-menu-btn" id="mobileMenuBtn">
-//                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-//                             <line x1="3" y1="6" x2="21" y2="6"></line>
-//                             <line x1="3" y1="12" x2="21" y2="12"></line>
-//                             <line x1="3" y1="18" x2="21" y2="18"></line>
-//                         </svg>
-//                     </button>
-
-//                     <ul className="navbar-menu" id="navbarMenu">
-//                         <li><a href="#home" className="nav-link">Home</a></li>
-//                         <li><a href="#services" className="nav-link">Services</a></li>
-//                         <li><a href="#tests" className="nav-link">Test Menu</a></li>
-//                         <li><a href="#contact" className="nav-link">Contact</a></li>
-//                         <li><a href="#login" className="nav-link nav-login" onClick={() => navigate('/login')}>Login</a></li>
-//                     </ul>
-//                 </div>
-//             </nav>
-
-//             {/* Hero Section */}
-//             <section className="hero" id="home">
-//                 <div className="hero-container">
-//                     <div className="hero-content">
-//                         <h1 className="hero-title">Accurate Diagnostics.<br />Trusted Care.</h1>
-//                         <p className="hero-subtitle">
-//                             Comprehensive laboratory testing with fast, reliable results. 
-//                             Your health is our priority. Secure, confidential, and patient-first care.
-//                         </p>
-//                         <div className="hero-buttons">
-//                             <button className="btn btn-primary" onClick={() => handleCtaClick('book')}>Book a Test</button>
-//                             <button className="btn btn-outline" onClick={() => handleCtaClick('menu')}>View Test Menu</button>
-//                         </div>
-//                     </div>
-//                     <div className="hero-image">
-//                         <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" className="medical-illustration">
-//                             <circle cx="200" cy="100" r="60" fill="#E8EEF3" stroke="#0A67C2" strokeWidth="2"/>
-//                             <rect x="170" y="160" width="60" height="150" rx="8" fill="none" stroke="#0A67C2" strokeWidth="2"/>
-//                             <rect x="180" y="170" width="40" height="80" fill="#0A67C2" opacity="0.2"/>
-//                             <circle cx="200" cy="330" r="50" fill="#F7FAFC" stroke="#0A67C2" strokeWidth="2"/>
-//                             <rect x="190" y="250" width="20" height="80" fill="#0A67C2" opacity="0.3"/>
-//                             <circle cx="80" cy="120" r="30" fill="#E8EEF3" opacity="0.6"/>
-//                             <circle cx="320" cy="200" r="40" fill="#E8EEF3" opacity="0.4"/>
-//                             <circle cx="100" cy="300" r="25" fill="#E8EEF3" opacity="0.5"/>
-//                         </svg>
-//                     </div>
-//                 </div>
-//             </section>
-
-//             {/* Features Section */}
-//             <section className="features" id="features">
-//                 <div className="features-container">
-//                     <h2 className="section-title">Why Choose SLNCity</h2>
-//                     <div className="features-grid">
-//                         <div className="feature-card">
-//                             <div className="feature-icon">
-//                                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#0A67C2" strokeWidth="2">
-//                                     <circle cx="24" cy="24" r="20"/>
-//                                     <path d="M24 12v12l8 5"/>
-//                                 </svg>
-//                             </div>
-//                             <h3 className="feature-title">Fast Reporting</h3>
-//                             <p className="feature-text">Get accurate results quickly. Most tests completed within 24 hours with online access to your reports.</p>
-//                         </div>
-
-//                         <div className="feature-card">
-//                             <div className="feature-icon">
-//                                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#0A67C2" strokeWidth="2">
-//                                     <path d="M24 4L6 12v12c0 12 18 16 18 16s18-4 18-16V12l-18-8z"/>
-//                                     <path d="M17 24l5 5 10-10"/>
-//                                 </svg>
-//                             </div>
-//                             <h3 className="feature-title">Secure Records</h3>
-//                             <p className="feature-text">Your health data is encrypted and protected. Complete privacy and confidentiality guaranteed.</p>
-//                         </div>
-
-//                         <div className="feature-card">
-//                             <div className="feature-icon">
-//                                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#0A67C2" strokeWidth="2">
-//                                     <circle cx="12" cy="12" r="4"/>
-//                                     <circle cx="36" cy="12" r="4"/>
-//                                     <circle cx="24" cy="36" r="4"/>
-//                                     <path d="M16 12h16M24 16v16M12 16l12 20M36 16l-12 20"/>
-//                                 </svg>
-//                             </div>
-//                             <h3 className="feature-title">Automated Workflow</h3>
-//                             <p className="feature-text">Modern lab equipment ensures precision and consistency in every test we perform.</p>
-//                         </div>
-
-//                         <div className="feature-card">
-//                             <div className="feature-icon">
-//                                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#0A67C2" strokeWidth="2">
-//                                     <rect x="6" y="8" width="36" height="32" rx="2"/>
-//                                     <path d="M6 16h36"/>
-//                                     <circle cx="12" cy="28" r="2" fill="#0A67C2"/>
-//                                     <circle cx="24" cy="28" r="2" fill="#0A67C2"/>
-//                                     <circle cx="36" cy="28" r="2" fill="#0A67C2"/>
-//                                 </svg>
-//                             </div>
-//                             <h3 className="feature-title">Online Tracking</h3>
-//                             <p className="feature-text">Track your test status in real-time. Download reports anytime, anywhere from your dashboard.</p>
-//                         </div>
-//                     </div>
-//                 </div>
-//             </section>
-
-//             {/* Services Section */}
-//             <section className="services" id="services">
-//                 <div className="services-container">
-//                     <h2 className="section-title">Our Services</h2>
-//                     <div className="services-grid">
-//                         <div className="service-card">
-//                             <div className="service-icon">
-//                                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#0A67C2" strokeWidth="2">
-//                                     <circle cx="20" cy="12" r="3"/>
-//                                     <path d="M20 15v10M15 22l-5 8h20l-5-8"/>
-//                                     <path d="M10 30h20"/>
-//                                 </svg>
-//                             </div>
-//                             <h3>Hematology</h3>
-//                             <p>Blood cell analysis and coagulation studies</p>
-//                         </div>
-
-//                         <div className="service-card">
-//                             <div className="service-icon">
-//                                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#0A67C2" strokeWidth="2">
-//                                     <rect x="8" y="8" width="24" height="24" rx="2"/>
-//                                     <path d="M14 14h12M14 20h12M14 26h8"/>
-//                                 </svg>
-//                             </div>
-//                             <h3>Biochemistry</h3>
-//                             <p>Metabolic and enzyme analysis</p>
-//                         </div>
-
-//                         <div className="service-card">
-//                             <div className="service-icon">
-//                                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#0A67C2" strokeWidth="2">
-//                                     <path d="M12 10h16v20H12z"/>
-//                                     <circle cx="20" cy="18" r="4" fill="#0A67C2" opacity="0.3"/>
-//                                     <path d="M14 20h12M14 24h12"/>
-//                                 </svg>
-//                             </div>
-//                             <h3>Microbiology</h3>
-//                             <p>Culture and sensitivity testing</p>
-//                         </div>
-
-//                         <div className="service-card">
-//                             <div className="service-icon">
-//                                 <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#0A67C2" strokeWidth="2">
-//                                     <path d="M20 8c6.6 0 12 5.4 12 12s-5.4 12-12 12-12-5.4-12-12 5.4-12 12-12z"/>
-//                                     <path d="M20 14v12M14 20h12"/>
-//                                 </svg>
-//                             </div>
-//                             <h3>Immunology</h3>
-//                             <p>Antibody and antigen testing</p>
-//                         </div>
-//                     </div>
-//                 </div>
-//             </section>
-
-//             {/* Test Menu Section (static preview) */}
-//             <section className="test-menu" id="tests">
-//                 <div className="test-menu-container">
-//                     <h2 className="section-title">Comprehensive Test Menu</h2>
-//                     <p className="section-subtitle">From routine checkups to specialized diagnostics, we offer a complete range of laboratory tests. For pricing and bookings, please view the full menu or contact our team.</p>
-//                     <div style={{ marginTop: '1rem' }}>
-//                         <button className="btn btn-primary" onClick={() => navigate('/tests')}>View Test Menu</button>
-//                         <button className="btn btn-outline" style={{ marginLeft: 12 }} onClick={() => navigate('/contact')}>Contact Us</button>
-//                     </div>
-//                 </div>
-//             </section>
-
-//             {/* Footer */}
-//             <footer className="footer" id="contact">
-//                 <div className="footer-container">
-//                     <div className="footer-content">
-//                         <div className="footer-section">
-//                             <h4>Sri Lakshmi Narasimha City Diagnostic Center</h4>
-//                             <p>Providing trusted diagnostic services since 2020.</p>
-//                         </div>
-//                         <div className="footer-section">
-//                             <h4>Contact</h4>
-//                             <p>Email: <a href="mailto:info@slncity.com">info@slncity.com</a></p>
-//                             <p>Phone: <a href="tel:+911234567890">+91 123-456-7890</a></p>
-//                         </div>
-//                         <div className="footer-section">
-//                             <h4>Location</h4>
-//                             <p>123 Medical Plaza, Healthcare Avenue<br />City, State 560001</p>
-//                         </div>
-//                     </div>
-//                     <div className="footer-divider"></div>
-//                     <div className="footer-bottom">
-//                         <p>&copy; 2025 SLNCity Diagnostics. All rights reserved.</p>
-//                         <div className="footer-links">
-//                             <a href="#privacy">Privacy Policy</a>
-//                             <a href="#terms">Terms of Service</a>
-//                         </div>
-//                     </div>
-//                 </div>
-//             </footer>
-//         </>
-//     );
-// };
-
-
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Activity, 
-  Clock, 
-  Shield, 
-  TrendingUp, 
-  User, 
-  FileText, 
-  Heart, 
-  CheckCircle, 
-  Menu, 
-  X,
-  Phone,
-  Mail,
-  MapPin,
-  Users,
-  Microscope,
-  TestTube,
-  Stethoscope
-} from 'lucide-react';
-import "./Landing.css";
+import './Landing.css';
+
+// Minimal outline icons (non-Lucene) built with plain SVG
+const TestTubeIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M22 6h20v6H22z" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M24 12v30c0 6.6 4.4 12 10 12s10-5.4 10-12V12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M24 20h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+
+const HeartbeatIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M12 28c0-8 6-14 14-14 4.6 0 8.6 2.4 11 6 2.4-3.6 6.4-6 11-6 8 0 14 6 14 14 0 14-18 24-25 28-7-4-25-14-25-28z" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <path d="M10 30h10l5-12 6 22 5-12h8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const MicroscopeIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M26 12h10v16H26z" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <path d="M22 10h18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M32 28v10c0 4-3 7-7 7h-7" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M14 52h36" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <circle cx="44" cy="34" r="6" fill="none" stroke="currentColor" strokeWidth="2.5" />
+  </svg>
+);
+
+const DropperIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M40 10l8 8c2 2 2 5.2 0 7.2l-4.5 4.6-15.3 15.3c-2 2-5.2 2-7.2 0l-2.8-2.8c-2-2-2-5.2 0-7.2l15.3-15.3 4.5-4.6C34.8 12 38 12 40 14z" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M18 46l-8 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M42 22l-6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+
+const ShieldIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M32 6l18 8v12c0 12-7.5 23.2-18 28-10.5-4.8-18-16-18-28V14z" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <path d="M24 30l6 6 10-12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const LightningIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M30 8h12l-8 16h12L26 56l4-18H18z" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const PadlockIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <rect x="14" y="28" width="36" height="26" rx="6" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <path d="M22 28v-8a10 10 0 0 1 20 0v8" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <circle cx="32" cy="40" r="3" fill="currentColor" />
+    <path d="M32 43v5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+
+const TechIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <rect x="12" y="14" width="40" height="30" rx="4" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <path d="M18 24h10M18 32h6M34 24h12M34 32h12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    <rect x="24" y="46" width="16" height="4" rx="2" fill="currentColor" />
+  </svg>
+);
+
+const HeartIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M32 54S10 40 10 24c0-7.2 5.8-13 13-13 4.6 0 8.6 2.4 11 6 2.4-3.6 6.4-6 11-6 7.2 0 13 5.8 13 13 0 16-22 30-22 30z" fill="none" stroke="currentColor" strokeWidth="2.5" />
+  </svg>
+);
+
+const PhoneIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M24 6h16c2.2 0 4 1.8 4 4v44c0 2.2-1.8 4-4 4H24c-2.2 0-4-1.8-4-4V10c0-2.2 1.8-4 4-4z" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <circle cx="32" cy="50" r="2.5" fill="currentColor" />
+  </svg>
+);
+
+const MailIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <rect x="10" y="16" width="44" height="32" rx="4" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <path d="M12 20l20 14 20-14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+  </svg>
+);
+
+const MapPinIcon = () => (
+  <svg viewBox="0 0 64 64" aria-hidden="true" className="icon">
+    <path d="M32 6c10 0 18 8 18 18 0 14-18 30-18 30S14 38 14 24c0-10 8-18 18-18z" fill="none" stroke="currentColor" strokeWidth="2.5" />
+    <circle cx="32" cy="24" r="6" fill="none" stroke="currentColor" strokeWidth="2.5" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className="icon small">
+    <path d="M5 12l4 4 10-10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const gradientHero = 'https://images.unsplash.com/photo-1581090464777-f3220bbe1b8c?auto=format&fit=crop&w=1400&q=80';
+const abstractMedical = 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80';
 
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.classList.add("visible");
-        }
-      });
-    }, { threshold: 0.1 });
+  const services = [
+    { title: 'Hematology', desc: 'Advanced blood analysis for precise diagnostics.', Icon: TestTubeIcon },
+    { title: 'Biochemistry', desc: 'Comprehensive metabolic and enzyme profiling.', Icon: DropperIcon },
+    { title: 'Microbiology', desc: 'Culture, sensitivity, and pathogen detection.', Icon: MicroscopeIcon },
+    { title: 'Specialized Tests', desc: 'Endocrine, cardiac, and oncology panels.', Icon: HeartbeatIcon },
+  ];
 
-    document.querySelectorAll(".reveal").forEach(el => obs.observe(el));
-    return () => obs.disconnect();
-  }, []);
+  const whyUs = [
+    { title: 'Fast Results', desc: 'Streamlined lab workflow for under-24-hour reporting.', Icon: LightningIcon },
+    { title: 'Secure & Private', desc: 'Encrypted records with controlled access.', Icon: PadlockIcon },
+    { title: 'Advanced Technology', desc: 'Medical-grade analyzers and continuous QA.', Icon: TechIcon },
+    { title: 'Patient-Centered', desc: 'Compassionate guidance at every step.', Icon: HeartIcon },
+  ];
+
+  const stats = [
+    { label: '24/7 Availability', value: '24/7' },
+    { label: 'Reports < 24 hrs', value: '<24h' },
+    { label: '100% Accuracy Standards', value: '100%' },
+  ];
+
+  const contact = [
+    { title: 'Phone', value: '+91 98765 43210', Icon: PhoneIcon },
+    { title: 'Email', value: 'care@slncity.com', Icon: MailIcon },
+    { title: 'Location', value: 'Sri Lakshmi Narasimha City Diagnostics, SLNCity', Icon: MapPinIcon },
+  ];
 
   return (
-    <div className="landing-root">
-      {/* NAVBAR */}
-      <nav className="navbar">
-        <div className="navbar-inner">
-          <div className="logo-section" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <Activity className="logo-icon" />
-            <span className="logo-text">SLNCity Diagnostics</span>
+    <div className="landing-page">
+      {/* NAVIGATION */}
+      <header className="nav-bar">
+        <div className="nav-content">
+          <div className="brand" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <div className="brand-mark">SL</div>
+            <span className="brand-name">SLNCity Diagnostics</span>
           </div>
-          
-          {/* Mobile Menu Toggle */}
-          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-
-          {/* Desktop Navigation */}
-          <div className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-            <button onClick={() => { document.getElementById("features")?.scrollIntoView({ behavior: 'smooth' }); setMobileMenuOpen(false); }}>
-              Why Choose Us
-            </button>
-            <button onClick={() => { document.getElementById("services")?.scrollIntoView({ behavior: 'smooth' }); setMobileMenuOpen(false); }}>
-              Services
-            </button>
-            <button onClick={() => { navigate('/tests'); setMobileMenuOpen(false); }}>
-              Test Menu
-            </button>
-            <button onClick={() => { document.getElementById("contact")?.scrollIntoView({ behavior: 'smooth' }); setMobileMenuOpen(false); }}>
-              Contact
-            </button>
-            <button className="login-btn" onClick={() => { navigate('/login'); setMobileMenuOpen(false); }}>
-              <User size={16} className="btn-icon" />
-              Staff Login
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* HERO SECTION */}
-      <header className="hero-section reveal">
-        <div className="hero-bg-gradient"></div>
-        <div className="hero-inner">
-          <div className="hero-badge">
-            <CheckCircle size={16} />
-            <span>Trusted by 10,000+ Patients</span>
-          </div>
-          <h1 className="hero-title">
-            Your Health,<br />
-            <span className="gradient-text">Our Priority</span>
-          </h1>
-          <p className="hero-subtitle">
-            Experience world-class diagnostic services with fast, accurate results.
-            Advanced technology meets compassionate care.
-          </p>
-          <div className="hero-actions">
-            <button className="btn-primary" onClick={() => navigate('/tests')}>
-              <FileText size={18} />
-              View Test Menu
-            </button>
-            <button className="btn-outline" onClick={() => document.getElementById("contact")?.scrollIntoView({ behavior: 'smooth' })}>
-              <Phone size={18} />
-              Contact Us
-            </button>
-          </div>
-          
-          {/* Stats Row */}
-          <div className="hero-stats">
-            <div className="stat-item">
-              <div className="stat-number">24/7</div>
-              <div className="stat-label">Available</div>
-            </div>
-            <div className="stat-divider"></div>
-            <div className="stat-item">
-              <div className="stat-number">&lt;24hrs</div>
-              <div className="stat-label">Fast Reports</div>
-            </div>
-            <div className="stat-divider"></div>
-            <div className="stat-item">
-              <div className="stat-number">100%</div>
-              <div className="stat-label">Accurate</div>
-            </div>
-          </div>
+          <nav className="nav-links">
+            <a href="#why">Why Us</a>
+            <a href="#services">Services</a>
+            <a href="#tests" onClick={(e) => { e.preventDefault(); navigate('/tests'); }}>Test Menu</a>
+            <a href="#contact">Contact</a>
+          </nav>
+          <button className="nav-cta" onClick={() => navigate('/login')}>Staff Login</button>
         </div>
       </header>
 
-      {/* FEATURES SECTION */}
-      <section className="features-section reveal" id="features">
-        <div className="features-inner">
-          <div className="section-header">
-            <span className="section-badge">Why Choose Us</span>
-            <h2 className="section-title">Excellence in Every Test</h2>
-            <p className="section-subtitle">
-              State-of-the-art equipment and experienced professionals ensuring the highest standards
-            </p>
+      {/* HERO */}
+      <section className="hero">
+        <div className="hero-inner">
+          <div className="hero-left">
+            <div className="pill">Trusted by 10,000+ Patients</div>
+            <h1>Accurate Diagnostics, Compassionate Care</h1>
+            <p>Fast, reliable test results backed by advanced medical technology. Experience a premium, patient-first diagnostic journey.</p>
+            <div className="hero-actions">
+              <button className="btn primary" onClick={() => navigate('/tests')}>View Test Menu</button>
+              <button className="btn ghost" onClick={() => navigate('/login')}>Book Appointment</button>
+            </div>
+            <div className="stat-row">
+              {stats.map((stat) => (
+                <div key={stat.label} className="stat-card">
+                  <div className="stat-value">{stat.value}</div>
+                  <div className="stat-label">{stat.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
-          
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon blue">
-                <Clock size={28} />
-              </div>
-              <h3>Fast Results</h3>
-              <p>Most test results delivered within 24 hours with instant online access to your reports.</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon green">
-                <Shield size={28} />
-              </div>
-              <h3>100% Secure</h3>
-              <p>Your health data is encrypted and protected with complete privacy and confidentiality.</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon purple">
-                <TrendingUp size={28} />
-              </div>
-              <h3>Advanced Technology</h3>
-              <p>Modern automated equipment ensures precision and consistency in every test.</p>
-            </div>
-
-            <div className="feature-card">
-              <div className="feature-icon orange">
-                <Heart size={28} />
-              </div>
-              <h3>Patient Care</h3>
-              <p>Experienced phlebotomists and friendly staff dedicated to your comfort.</p>
-            </div>
+          <div className="hero-right">
+            <div className="hero-image" style={{ backgroundImage: `url(${gradientHero})` }} aria-label="Modern medical laboratory"></div>
           </div>
         </div>
       </section>
 
-      {/* SERVICES SECTION */}
-      <section className="services-section reveal" id="services">
-        <div className="services-inner">
-          <div className="section-header">
-            <span className="section-badge">Our Services</span>
-            <h2 className="section-title">Comprehensive Diagnostic Services</h2>
-          </div>
-          
-          <div className="services-grid">
-            <div className="service-card">
-              <div className="service-icon">
-                <TestTube size={32} />
+      {/* STATS */}
+      <section className="stats" aria-label="Key metrics">
+        <div className="stats-grid">
+          {stats.map((stat) => (
+            <div key={stat.label} className="stats-card">
+              <div className="stats-icon">
+                <ShieldIcon />
               </div>
-              <h3>Hematology</h3>
-              <p>Complete blood count, coagulation studies, and blood cell analysis</p>
-              <ul className="service-list">
-                <li>CBC with Differential</li>
-                <li>Platelet Count</li>
-                <li>ESR & Hemoglobin</li>
-              </ul>
-            </div>
-
-            <div className="service-card">
-              <div className="service-icon">
-                <Activity size={32} />
+              <div className="stats-text">
+                <span className="stats-value">{stat.value}</span>
+                <span className="stats-label">{stat.label}</span>
               </div>
-              <h3>Biochemistry</h3>
-              <p>Metabolic panels, enzyme analysis, and organ function tests</p>
-              <ul className="service-list">
-                <li>Liver Function Tests</li>
-                <li>Kidney Function Tests</li>
-                <li>Lipid Profile</li>
-              </ul>
             </div>
-
-            <div className="service-card">
-              <div className="service-icon">
-                <Microscope size={32} />
-              </div>
-              <h3>Microbiology</h3>
-              <p>Culture & sensitivity testing for bacterial infections</p>
-              <ul className="service-list">
-                <li>Urine Culture</li>
-                <li>Blood Culture</li>
-                <li>Antibiotic Sensitivity</li>
-              </ul>
-            </div>
-
-            <div className="service-card">
-              <div className="service-icon">
-                <Stethoscope size={32} />
-              </div>
-              <h3>Specialized Tests</h3>
-              <p>Hormone panels, vitamin tests, and immunology</p>
-              <ul className="service-list">
-                <li>Thyroid Profile</li>
-                <li>Diabetes Screening</li>
-                <li>Vitamin D & B12</li>
-              </ul>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* FOR PATIENTS SECTION */}
-      <section className="for-patients-section reveal">
-        <div className="for-patients-inner">
-          <div className="patients-content">
-            <div className="patients-text">
-              <span className="section-badge">For Patients</span>
-              <h2>Easy, Convenient & Reliable</h2>
-              <div className="patients-features">
-                <div className="patients-feature-item">
-                  <CheckCircle className="check-icon" />
-                  <div>
-                    <h4>Online Reports</h4>
-                    <p>Access your reports anytime, anywhere through our secure portal</p>
-                  </div>
-                </div>
-                <div className="patients-feature-item">
-                  <CheckCircle className="check-icon" />
-                  <div>
-                    <h4>Home Sample Collection</h4>
-                    <p>Convenient at-home sample collection service available</p>
-                  </div>
-                </div>
-                <div className="patients-feature-item">
-                  <CheckCircle className="check-icon" />
-                  <div>
-                    <h4>Multiple Payment Options</h4>
-                    <p>Cash, Card, UPI - pay however you prefer</p>
-                  </div>
-                </div>
+      {/* SERVICES */}
+      <section className="section" id="services">
+        <div className="section-header">
+          <span className="eyebrow">Services</span>
+          <h2>Precision Across Every Department</h2>
+          <p className="section-lead">Rounded, minimal cards with soft shadows for a premium, clinical-grade interface.</p>
+        </div>
+        <div className="card-grid">
+          {services.map(({ title, desc, Icon }) => (
+            <div key={title} className="card">
+              <div className="icon-bubble">
+                <Icon />
               </div>
-              <button className="btn-primary" onClick={() => navigate('/tests')}>
-                View All Tests
-              </button>
+              <h3>{title}</h3>
+              <p>{desc}</p>
             </div>
-            <div className="patients-image">
-              <div className="image-placeholder">
-                <Users size={120} className="placeholder-icon" />
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* CONTACT SECTION */}
-      <section className="contact-section" id="contact">
-        <div className="contact-inner">
-          <div className="section-header">
-            <span className="section-badge">Get In Touch</span>
-            <h2 className="section-title">Contact Us</h2>
-            <p className="section-subtitle">Have questions? We're here to help</p>
-          </div>
-          
-          <div className="contact-grid">
-            <div className="contact-card">
-              <div className="contact-icon">
-                <Phone size={28} />
+      {/* WHY CHOOSE US */}
+      <section className="section tinted" id="why">
+        <div className="section-header">
+          <span className="eyebrow">Why Choose Us</span>
+          <h2>Medical-Grade Standards, Human-Centered Care</h2>
+          <p className="section-lead">Soft gradient icon backgrounds, rounded cards, and generous whitespace for a calm experience.</p>
+        </div>
+        <div className="card-grid four">
+          {whyUs.map(({ title, desc, Icon }) => (
+            <div key={title} className="card feature">
+              <div className="icon-pill">
+                <Icon />
               </div>
-              <h3>Phone</h3>
-              <a href="tel:+911234567890">+91 12345 67890</a>
-              <p className="contact-time">Mon - Sun: 24/7 Available</p>
+              <div>
+                <h3>{title}</h3>
+                <p>{desc}</p>
+              </div>
             </div>
+          ))}
+        </div>
+      </section>
 
-            <div className="contact-card">
-              <div className="contact-icon">
-                <Mail size={28} />
-              </div>
-              <h3>Email</h3>
-              <a href="mailto:info@slncity.com">info@slncity.com</a>
-              <p className="contact-time">We'll respond within 24 hours</p>
-            </div>
-
-            <div className="contact-card">
-              <div className="contact-icon">
-                <MapPin size={28} />
-              </div>
-              <h3>Location</h3>
-              <p>123 Medical Plaza<br />Healthcare Avenue<br />Chennai, Tamil Nadu 560001</p>
-            </div>
+      {/* PATIENT CONVENIENCE */}
+      <section className="section convenience" id="tests">
+        <div className="convenience-inner">
+          <div className="convenience-text">
+            <span className="eyebrow">Patient Convenience</span>
+            <h2>Designed Around Your Time and Comfort</h2>
+            <ul className="bullet-list">
+              {['Online Reports', 'Home Sample Collection', 'Multiple Payment Options'].map((item) => (
+                <li key={item}>
+                  <span className="bullet-icon"><CheckIcon /></span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <button className="btn primary" onClick={() => navigate('/tests')}>View All Tests</button>
           </div>
+          <div className="convenience-visual" style={{ backgroundImage: `url(${abstractMedical})` }} aria-label="Clean medical illustration"></div>
+        </div>
+      </section>
+
+      {/* CONTACT */}
+      <section className="section" id="contact">
+        <div className="section-header">
+          <span className="eyebrow">Contact</span>
+          <h2>We are here around the clock</h2>
+        </div>
+        <div className="card-grid contact-grid">
+          {contact.map(({ title, value, Icon }) => (
+            <div key={title} className="card contact-card">
+              <div className="icon-square"><Icon /></div>
+              <div>
+                <h4>{title}</h4>
+                <p>{value}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer className="footer-section">
+      <footer className="footer">
         <div className="footer-inner">
-          <div className="footer-content">
-            <div className="footer-column">
-              <div className="footer-logo">
-                <Activity size={24} />
-                <span>SLNCity Diagnostics</span>
-              </div>
-              <p className="footer-desc">
-                Providing trusted diagnostic services with a commitment to accuracy, speed, and patient care.
-              </p>
-            </div>
-            
-            <div className="footer-column">
-              <h4>Quick Links</h4>
-              <ul>
-                <li><a href="#features">About Us</a></li>
-                <li><a href="#services">Services</a></li>
-                <li><button onClick={() => navigate('/tests')}>Test Menu</button></li>
-                <li><button onClick={() => navigate('/contact')}>Contact</button></li>
-              </ul>
-            </div>
-            
-            <div className="footer-column">
-              <h4>For Staff</h4>
-              <ul>
-                <li><button onClick={() => navigate('/login')}>Staff Login</button></li>
-                <li><a href="#privacy">Privacy Policy</a></li>
-                <li><a href="#terms">Terms of Service</a></li>
-              </ul>
-            </div>
+          <div>
+            <h4>SLNCity Diagnostics</h4>
+            <p>Premium diagnostics with a focus on empathy, accuracy, and privacy.</p>
           </div>
-          
-          <div className="footer-bottom">
-            <p>&copy; {new Date().getFullYear()} Sri Lakshmi Narasimha City Diagnostic Center. All rights reserved.</p>
+          <div>
+            <h5>Quick Links</h5>
+            <ul>
+              <li><a href="#why">Why Us</a></li>
+              <li><a href="#services">Services</a></li>
+              <li><a href="#tests">Test Menu</a></li>
+            </ul>
+          </div>
+          <div>
+            <h5>Staff</h5>
+            <ul>
+              <li><button onClick={() => navigate('/login')}>Staff Login</button></li>
+              <li><button onClick={() => navigate('/login')}>Admin Panel</button></li>
+            </ul>
           </div>
         </div>
+        <div className="footer-bottom">© 2025 SLNCity Diagnostics. All rights reserved.</div>
       </footer>
     </div>
   );
