@@ -13,11 +13,13 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 
     // Apply location filtering for non-SUDO users
     if (user && user.role !== 'SUDO') {
-      if (user.location_id !== null && user.location_id !== undefined) {
-        query += ' WHERE (location_id = $1 OR location_id IS NULL)';
-        queryParams.push(user.location_id);
-        console.log(`📍 User ${user.id} fetching patients for location ${user.location_id}`);
+      if (user.location_id === null || user.location_id === undefined) {
+        // User has no location assigned - return empty result
+        return res.json([]);
       }
+      query += ' WHERE location_id = $1';
+      queryParams.push(user.location_id);
+      console.log(`📍 User ${user.id} fetching patients for location ${user.location_id}`);
     }
     // SUDO users see all patients
 
@@ -47,11 +49,13 @@ router.get('/search/:query', authMiddleware, async (req: Request, res: Response)
 
     // Apply location filtering for non-SUDO users
     if (user && user.role !== 'SUDO') {
-      if (user.location_id !== null && user.location_id !== undefined) {
-        query += ` AND (location_id = $3 OR location_id IS NULL)`;
-        queryParams.push(user.location_id);
-        console.log(`📍 User ${user.id} searching patients for location ${user.location_id}`);
+      if (user.location_id === null || user.location_id === undefined) {
+        // User has no location assigned - cannot search
+        return res.json([]);
       }
+      query += ` AND location_id = $3`;
+      queryParams.push(user.location_id);
+      console.log(`📍 User ${user.id} searching patients for location ${user.location_id}`);
     }
     // SUDO users search all patients
 
@@ -77,10 +81,11 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 
     // Apply location filtering for non-SUDO users
     if (user && user.role !== 'SUDO') {
-      if (user.location_id !== null && user.location_id !== undefined) {
-        query += ` AND (location_id = $2 OR location_id IS NULL)`;
-        queryParams.push(user.location_id);
+      if (user.location_id === null || user.location_id === undefined) {
+        return res.status(403).json({ error: 'User must have a location assigned' });
       }
+      query += ` AND location_id = $2`;
+      queryParams.push(user.location_id);
     }
 
     const result = await pool.query(query, queryParams);
@@ -96,6 +101,13 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const { salutation, name, age_years, age_months, age_days, sex, guardian_name, phone, address, email, clinical_history } = req.body;
+    
+    // Enforce location requirement for non-SUDO users
+    if (user && user.role !== 'SUDO') {
+      if (user.location_id === null || user.location_id === undefined) {
+        return res.status(403).json({ error: 'User must have a location assigned to create patients' });
+      }
+    }
     
     // Automatically assign location based on staff member's location
     const locationId = user?.location_id || null;
@@ -137,11 +149,12 @@ router.patch('/:id', authMiddleware, async (req: Request, res: Response) => {
 
     // Check location access for non-SUDO users
     if (user && user.role !== 'SUDO') {
-      if (user.location_id !== null && user.location_id !== undefined) {
-        const patientLocation = oldResult.rows[0].location_id;
-        if (patientLocation !== null && patientLocation !== user.location_id) {
-          return res.status(403).json({ error: 'You can only edit patients from your assigned location' });
-        }
+      if (user.location_id === null || user.location_id === undefined) {
+        return res.status(403).json({ error: 'User must have a location assigned to update patients' });
+      }
+      const patientLocation = oldResult.rows[0].location_id;
+      if (patientLocation !== null && patientLocation !== user.location_id) {
+        return res.status(403).json({ error: 'You can only edit patients from your assigned location' });
       }
     }
 

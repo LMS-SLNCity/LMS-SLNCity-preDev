@@ -8,19 +8,36 @@ import {
   validateAllLedgers,
   generateValidationReport
 } from '../utils/ledgerValidator.js';
-import { mediumCache } from '../middleware/cache.js';
 
 const router = express.Router();
 
-// Cache for 5 minutes - client list changes occasionally
-router.get('/', mediumCache, async (req: Request, res: Response) => {
+// GET all clients
+// Location-scoped: non-SUDO users see only their location's clients
+// Note: Cache removed because response varies by user's location_id
+router.get('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const result = await pool.query('SELECT id, name, type, balance FROM clients ORDER BY id');
+    const user = (req as any).user;
+    let query = 'SELECT id, name, type, balance, location_id FROM clients';
+    const params: any[] = [];
+
+    // Location scoping: only SUDO sees all clients
+    if (user?.role !== 'SUDO') {
+      if (user?.location_id === null || user?.location_id === undefined) {
+        // User has no location assigned - return empty result
+        return res.json([]);
+      }
+      query += ' WHERE (location_id = $1 OR location_id IS NULL)';
+      params.push(user.location_id);
+    }
+
+    query += ' ORDER BY id';
+    const result = await pool.query(query, params);
     res.json(result.rows.map(row => ({
       id: row.id,
       name: row.name,
       type: row.type,
       balance: parseFloat(row.balance),
+      location_id: row.location_id,
     })));
   } catch (error) {
     console.error('Error fetching clients:', error);
@@ -28,12 +45,18 @@ router.get('/', mediumCache, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/', async (req: Request, res: Response) => {
+// Location-scoped: new client inherits creator's location_id
+router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { name, type } = req.body;
+    const user = (req as any).user;
+
+    // Inherit location_id from creating user (unless SUDO)
+    const locationId = user?.role === 'SUDO' ? null : user?.location_id;
+
     const result = await pool.query(
-      'INSERT INTO clients (name, type, balance) VALUES ($1, $2, $3) RETURNING id, name, type, balance',
-      [name, type, 0]
+      'INSERT INTO clients (name, type, balance, location_id) VALUES ($1, $2, $3, $4) RETURNING id, name, type, balance, location_id',
+      [name, type, 0, locationId]
     );
     const row = result.rows[0];
     res.status(201).json({
@@ -41,6 +64,7 @@ router.post('/', async (req: Request, res: Response) => {
       name: row.name,
       type: row.type,
       balance: parseFloat(row.balance),
+      location_id: row.location_id,
     });
   } catch (error) {
     console.error('Error creating client:', error);
@@ -194,17 +218,27 @@ router.post('/:id/payment', async (req: Request, res: Response) => {
   }
 });
 
-// Delete client
-router.delete('/:id', async (req: Request, res: Response) => {
+// Delete client (location-scoped)
+router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const clientId = req.params.id;
+    const user = (req as any).user;
 
-    // Verify client exists
-    const client = await pool.query('SELECT id FROM clients WHERE id = $1', [clientId]);
-    if (client.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
+    // Build WHERE clause with location scoping
+    let whereClause = 'WHERE id = $1';
+    const params: any[] = [clientId];
+
+    if (user?.role !== 'SUDO' && user?.location_id !== null && user?.location_id !== undefined) {
+      whereClause += ' AND (location_id = $2 OR location_id IS NULL)';
+      params.push(user.location_id);
+    }
+
+    // Verify client exists and user has access
+    const client = await pool.query(`SELECT id FROM clients ${whereClause}`, params);
+    if (client.rows.length === 0) return res.status(404).json({ error: 'Client not found or access denied' });
 
     // Delete client
-    await pool.query('DELETE FROM clients WHERE id = $1', [clientId]);
+    await pool.query(`DELETE FROM clients ${whereClause}`, params);
 
     res.json({ message: 'Client deleted successfully' });
   } catch (error) {
@@ -491,20 +525,36 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Update client (must be after all specific routes)
-router.patch('/:id', async (req: Request, res: Response) => {
+// Location-scoped: user can only update clients in their location
+router.patch('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { name, type, balance } = req.body;
+    const user = (req as any).user;
+
+    // Build WHERE clause with location scoping
+    let whereClause = 'WHERE id = $4';
+    const params: any[] = [name, type, balance, req.params.id];
+
+    if (user?.role !== 'SUDO') {
+      if (user?.location_id === null || user?.location_id === undefined) {
+        return res.status(403).json({ error: 'User must have a location assigned to update clients' });
+      }
+      whereClause += ' AND (location_id = $5 OR location_id IS NULL)';
+      params.push(user.location_id);
+    }
+
     const result = await pool.query(
-      'UPDATE clients SET name = COALESCE($1, name), type = COALESCE($2, type), balance = COALESCE($3, balance), updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING id, name, type, balance',
-      [name, type, balance, req.params.id]
+      `UPDATE clients SET name = COALESCE($1, name), type = COALESCE($2, type), balance = COALESCE($3, balance), updated_at = CURRENT_TIMESTAMP ${whereClause} RETURNING id, name, type, balance, location_id`,
+      params
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Client not found or access denied' });
     const row = result.rows[0];
     res.json({
       id: row.id,
       name: row.name,
       type: row.type,
       balance: parseFloat(row.balance),
+      location_id: row.location_id,
     });
   } catch (error) {
     console.error('Error updating client:', error);

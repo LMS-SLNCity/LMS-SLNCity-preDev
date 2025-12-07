@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { TestTemplate } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,7 @@ export const PriceManagement: React.FC = () => {
     const { user: actor } = useAuth();
     const [prices, setPrices] = useState<PriceState>({});
     const [hasChanges, setHasChanges] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Load prices from testTemplates only on first load
     // DO NOT reload when testTemplates changes - causes excessive re-renders
@@ -83,10 +84,29 @@ export const PriceManagement: React.FC = () => {
 
     const activeTemplates = testTemplates.filter(t => t.isActive);
 
+    const filteredTemplates = useMemo(() => {
+        const needle = searchTerm.trim().toLowerCase();
+        if (!needle) return activeTemplates;
+        return activeTemplates.filter(t =>
+            t.name.toLowerCase().includes(needle) ||
+            t.code.toLowerCase().includes(needle) ||
+            (t.category || '').toLowerCase().includes(needle)
+        );
+    }, [activeTemplates, searchTerm]);
+
     return (
         <div>
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <h3 className="text-lg font-semibold text-gray-700">Manage Test Prices</h3>
+                <div className="flex-1 sm:max-w-sm">
+                    <input
+                        type="text"
+                        placeholder="Search by name, code, or category"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
                 <button 
                     onClick={handleSave} 
                     disabled={!hasChanges}
@@ -109,7 +129,7 @@ export const PriceManagement: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {activeTemplates.map((template, index) => (
+                        {filteredTemplates.map((template, index) => (
                             <tr key={template.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50 hover:bg-gray-100'}>
                                 <td className="px-4 py-2 text-sm font-medium text-gray-800">{template.name}</td>
                                 <td className="px-4 py-2">

@@ -14,13 +14,14 @@ router.get('/', async (req: Request, res: Response) => {
         u.role,
         u.is_active,
         u.signature_image_url,
+        u.location_id,
         COALESCE(
           ARRAY_AGG(DISTINCT up.permission ORDER BY up.permission) FILTER (WHERE up.permission IS NOT NULL),
           ARRAY[]::TEXT[]
         ) as permissions
       FROM users u
       LEFT JOIN user_permissions up ON u.id = up.user_id
-      GROUP BY u.id, u.username, u.role, u.is_active, u.signature_image_url
+      GROUP BY u.id, u.username, u.role, u.is_active, u.signature_image_url, u.location_id
       ORDER BY u.id
     `);
     res.json(result.rows);
@@ -41,6 +42,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         u.role,
         u.is_active,
         u.signature_image_url,
+        u.location_id,
         COALESCE(
           ARRAY_AGG(DISTINCT up.permission ORDER BY up.permission) FILTER (WHERE up.permission IS NOT NULL),
           ARRAY[]::TEXT[]
@@ -48,7 +50,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       FROM users u
       LEFT JOIN user_permissions up ON u.id = up.user_id
       WHERE u.id = $1
-      GROUP BY u.id, u.username, u.role, u.is_active, u.signature_image_url
+      GROUP BY u.id, u.username, u.role, u.is_active, u.signature_image_url, u.location_id
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -92,10 +94,18 @@ router.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { role, is_active } = req.body;
+    const locationProvided = Object.prototype.hasOwnProperty.call(req.body, 'location_id');
+    const location_id = locationProvided ? req.body.location_id : undefined;
 
     const result = await pool.query(
-      'UPDATE users SET role = COALESCE($1, role), is_active = COALESCE($2, is_active), updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, username, role, is_active, signature_image_url',
-      [role, is_active, id]
+      `UPDATE users SET
+         role = COALESCE($1, role),
+         is_active = COALESCE($2, is_active),
+         location_id = CASE WHEN $3::int IS NULL AND $4 = false THEN location_id ELSE $3 END,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5
+       RETURNING id, username, role, is_active, location_id, signature_image_url`,
+      [role, is_active, location_id, locationProvided, id]
     );
 
     if (result.rows.length === 0) {

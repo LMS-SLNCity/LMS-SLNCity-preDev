@@ -101,13 +101,25 @@ export const B2BPrintReport: React.FC = () => {
 
   const handlePrintReport = async (visitId: number) => {
     try {
-      // Find the full visit object from context
-      const fullVisit = allVisits.find(v => v.id === visitId);
-
-      if (!fullVisit) {
-        alert('Visit not found');
+      const token = sessionStorage.getItem('authToken');
+      if (!token) {
+        alert('Session expired. Please log in again.');
         return;
       }
+
+      // Fetch the full visit details directly
+      const response = await fetch(`${API_BASE_URL}/visits/${visitId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        alert('Failed to fetch visit details');
+        return;
+      }
+
+      const fullVisit = await response.json();
 
       // Use the first signatory (or default)
       const signatory = signatories.length > 0 ? signatories[0] : {
@@ -120,6 +132,7 @@ export const B2BPrintReport: React.FC = () => {
       setSelectedVisit(fullVisit);
       setSelectedSignatory(signatory);
     } catch (error) {
+      console.error('Error opening report:', error);
       alert('Failed to open report');
     }
   };
