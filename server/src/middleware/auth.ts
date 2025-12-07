@@ -43,8 +43,8 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
         id: decoded.id,
         username: decoded.username,
         role: decoded.role,
-        // include location if present in token
-        ...(decoded.location_id ? { location_id: decoded.location_id } : {}),
+        // include location if present in token (allow 0/null checks explicitly)
+        ...(decoded.location_id !== undefined ? { location_id: decoded.location_id } : {}),
         // include clientId if present in token (for B2B clients)
         ...(decoded.clientId ? { clientId: decoded.clientId } : {}),
         // include clientName if present in token (for B2B clients)

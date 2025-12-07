@@ -40,14 +40,17 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
       queryParams.push(userClientId);
       console.log(`🔒 B2B Client ${userClientId} accessing their visits only`);
     } else if (user && user.role !== 'SUDO') {
-      // For non-SUDO, non-B2B staff: filter by their assigned location
-      if (user.location_id !== null && user.location_id !== undefined) {
-        whereClauses.push(`(v.location_id = $${whereClauses.length + 1} OR v.location_id IS NULL)`);
-        queryParams.push(user.location_id);
-        console.log(`📍 User ${user.id} accessing visits for location ${user.location_id}`);
+      // For all non-SUDO staff: enforce strict location scope
+      // Users without location_id cannot see any location-tagged data
+      if (user.location_id === null || user.location_id === undefined) {
+        // User has no location assigned - return empty result
+        return res.json([]);
       }
+      whereClauses.push(`v.location_id = $${whereClauses.length + 1}`);
+      queryParams.push(user.location_id);
+      console.log(`📍 User ${user.id} accessing visits for location ${user.location_id}`);
     }
-    // SUDO users see all visits (no WHERE clause needed)
+    // Only SUDO users see all visits (no WHERE clause needed)
 
     // Optional filter: only B2B pending approvals
     if (req.query.b2b_pending === 'true') {

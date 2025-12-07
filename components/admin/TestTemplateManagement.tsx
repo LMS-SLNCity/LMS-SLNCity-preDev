@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { TestTemplate } from '../../types';
 import { TestTemplateFormModal } from './TestTemplateFormModal';
@@ -9,6 +9,7 @@ export const TestTemplateManagement: React.FC = () => {
     const { user: actor } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<TestTemplate | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const handleAddNew = () => {
         setEditingTemplate(null);
@@ -32,6 +33,16 @@ export const TestTemplateManagement: React.FC = () => {
 
     const activeTemplates = testTemplates.filter(t => t.isActive);
 
+    const filteredTemplates = useMemo(() => {
+        const needle = searchTerm.trim().toLowerCase();
+        if (!needle) return activeTemplates;
+        return activeTemplates.filter(t =>
+            t.name.toLowerCase().includes(needle) ||
+            t.code.toLowerCase().includes(needle) ||
+            (t.category || '').toLowerCase().includes(needle)
+        );
+    }, [activeTemplates, searchTerm]);
+
     return (
         <>
             {isModalOpen && (
@@ -41,8 +52,17 @@ export const TestTemplateManagement: React.FC = () => {
                 />
             )}
             <div>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                     <h3 className="text-lg font-semibold text-gray-700">Manage Test Templates</h3>
+                    <div className="flex-1 sm:max-w-sm">
+                        <input
+                            type="text"
+                            placeholder="Search by name, code, or category"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                        />
+                    </div>
                     <button onClick={handleAddNew} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white font-semibold rounded-lg shadow-md hover:bg-brand-primary_hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
@@ -61,7 +81,7 @@ export const TestTemplateManagement: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {activeTemplates.map((template, index) => (
+                            {filteredTemplates.map((template, index) => (
                                 <tr key={template.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50 hover:bg-gray-100'}>
                                     <td className="px-4 py-3 text-sm font-mono text-gray-600">{template.code}</td>
                                     <td className="px-4 py-3 text-sm font-medium text-gray-800">{template.name}</td>

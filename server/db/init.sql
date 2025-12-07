@@ -9,9 +9,11 @@ CREATE TABLE users (
     is_active BOOLEAN DEFAULT true,
     signature_image_url VARCHAR(500),
     branch_id INTEGER,
+    location_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+COMMENT ON COLUMN users.location_id IS 'Assigned location/branch for data scoping';
 
 -- Test Templates table
 CREATE TABLE test_templates (
@@ -62,9 +64,11 @@ CREATE TABLE clients (
     name VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL CHECK (type IN ('PATIENT', 'REFERRAL_LAB', 'INTERNAL')),
     balance DECIMAL(12, 2) DEFAULT 0,
+    location_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+COMMENT ON COLUMN clients.location_id IS 'Branch assignment for location-specific B2B client access';
 
 -- Client Prices table
 CREATE TABLE client_prices (
@@ -141,9 +145,11 @@ CREATE TABLE referral_doctors (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     designation VARCHAR(255),
+    location_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+COMMENT ON COLUMN referral_doctors.location_id IS 'Branch assignment for location-specific referral doctor access';
 
 -- Signatories table
 CREATE TABLE signatories (

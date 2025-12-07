@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { Visit, VisitTest, Patient, TestTemplate, VisitTestStatus, User, Role, UserWithPassword, Client, ClientPrice, LedgerEntry, RolePermissions, Permission, CultureResult, AuditLog, Antibiotic, Branch, Unit } from '../types';
-import { getCachedData, invalidateCache as invalidateDataCache, invalidateMultipleCaches } from './DataCache';
+import { getCachedData, invalidateCache as invalidateDataCache, invalidateMultipleCaches, invalidateAllCaches } from './DataCache';
 
 // API Base URL - uses environment variable or falls back to localhost
 const API_BASE_URL = import.meta.env.VITE_API_URL
@@ -141,6 +141,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     console.log('🚀 AppContext initialized - using lazy loading strategy');
     console.log('📊 Data will be loaded on-demand per view');
+    
+    // Clear cache when AppContext mounts to ensure fresh data with new auth token
+    invalidateAllCaches();
+    console.log('🗑️ Cache cleared on AppContext mount');
   }, []);
 
   // Helper function to invalidate OLD cache when data changes (legacy)

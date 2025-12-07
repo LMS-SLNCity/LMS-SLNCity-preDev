@@ -94,7 +94,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     console.log('Querying database for user:', username);
     const result = await pool.query(
-      'SELECT id, username, password_hash, role, is_active FROM users WHERE username = $1',
+      'SELECT id, username, password_hash, role, is_active, location_id FROM users WHERE username = $1',
       [username]
     );
     console.log('Query result:', result.rows.length, 'rows');
@@ -133,6 +133,8 @@ router.post('/login', async (req: Request, res: Response) => {
       id: user.id,
       username: user.username,
       role: user.role,
+      // carry location to enforce per-branch data access
+      ...(user.location_id !== undefined ? { location_id: user.location_id } : {}),
     };
     const token = jwt.sign(
       tokenPayload,
@@ -158,6 +160,7 @@ router.post('/login', async (req: Request, res: Response) => {
         username: user.username,
         role: user.role,
         isActive: user.is_active,
+        location_id: user.location_id,
         permissions,
       },
     });

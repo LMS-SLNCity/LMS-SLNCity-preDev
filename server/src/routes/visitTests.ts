@@ -6,21 +6,46 @@ import { authMiddleware, requireRole } from '../middleware/auth.js';
 const router = express.Router();
 
 // No caching - visit tests change very frequently
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const result = await pool.query(
-      `SELECT vt.id, vt.visit_id, vt.test_template_id, vt.status, vt.collected_by, vt.collected_at, vt.specimen_type,
+    const user = (req as any).user;
+    const isSudo = user?.role === 'SUDO';
+    const isB2B = user?.role === 'B2B_CLIENT';
+
+    // B2B clients can only see tests from their own visits; staff are scoped to their location
+    let query = `SELECT vt.id, vt.visit_id, vt.test_template_id, vt.status, vt.collected_by, vt.collected_at, vt.specimen_type,
               vt.results, vt.culture_result, vt.approved_by, vt.approved_at, vt.rejection_count, vt.last_rejection_at, vt.created_at,
               tt.id as template_id, tt.code, tt.name, tt.category, tt.price, tt.b2b_price, tt.is_active, tt.report_type, tt.parameters, tt.default_antibiotic_ids, tt.sample_type, tt.tat_hours,
-              v.visit_code, v.other_ref_doctor, p.name as patient_name,
+              v.visit_code, v.other_ref_doctor, v.ref_customer_id, v.location_id, p.name as patient_name,
               rd.name as referred_doctor_name, rd.designation as referred_doctor_designation
        FROM visit_tests vt
        JOIN test_templates tt ON vt.test_template_id = tt.id
        JOIN visits v ON vt.visit_id = v.id
        JOIN patients p ON v.patient_id = p.id
-       LEFT JOIN referral_doctors rd ON v.referred_doctor_id = rd.id
-       ORDER BY vt.created_at DESC`
-    );
+       LEFT JOIN referral_doctors rd ON v.referred_doctor_id = rd.id`;
+    
+    const params: any[] = [];
+    const where: string[] = [];
+
+    if (isB2B && user?.clientId) {
+      where.push(`v.ref_customer_id = $${params.length + 1}`);
+      params.push(user.clientId);
+    } else if (!isSudo) {
+      // Users without location_id cannot see any location-tagged data
+      if (user?.location_id === null || user?.location_id === undefined) {
+        return res.json([]);
+      }
+      where.push(`v.location_id = $${where.length + 1}`);
+      params.push(user.location_id);
+    }
+    
+    if (where.length) {
+      query += ' WHERE ' + where.join(' AND ');
+    }
+    
+    query += ` ORDER BY vt.created_at DESC`;
+    
+    const result = await pool.query(query, params);
     res.json(result.rows.map(row => {
       const reportType = (row.report_type || 'standard').toLowerCase();
       return {
@@ -66,11 +91,15 @@ router.get('/', async (req: Request, res: Response) => {
 
 router.get('/:id', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    const isSudo = user?.role === 'SUDO';
+    const isB2B = user?.role === 'B2B_CLIENT';
+    
     const result = await pool.query(
       `SELECT vt.id, vt.visit_id, vt.test_template_id, vt.status, vt.collected_by, vt.collected_at, vt.specimen_type,
               vt.results, vt.culture_result, vt.approved_by, vt.approved_at, vt.rejection_count, vt.last_rejection_at,
               tt.id as template_id, tt.code, tt.name, tt.category, tt.price, tt.b2b_price, tt.is_active, tt.report_type, tt.parameters, tt.default_antibiotic_ids, tt.sample_type, tt.tat_hours,
-              v.visit_code, p.name as patient_name
+              v.visit_code, v.ref_customer_id, v.location_id, p.name as patient_name
        FROM visit_tests vt
        JOIN test_templates tt ON vt.test_template_id = tt.id
        JOIN visits v ON vt.visit_id = v.id
@@ -79,8 +108,20 @@ router.get('/:id', async (req: Request, res: Response) => {
       [req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Visit test not found' });
-
+    
     const row = result.rows[0];
+    
+    // B2B clients can only see their own tests
+    if (isB2B && user?.clientId) {
+      if (row.ref_customer_id !== user.clientId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    } else if (!isSudo && user?.location_id !== null && user?.location_id !== undefined) {
+      if (row.location_id !== user.location_id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
     const reportType = (row.report_type || 'standard').toLowerCase();
     res.json({
       id: row.id,
