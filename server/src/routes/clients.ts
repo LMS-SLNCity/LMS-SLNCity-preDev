@@ -375,7 +375,7 @@ router.post('/:id/settle', async (req: Request, res: Response) => {
 });
 
 // Set up client login credentials
-router.post('/:id/setup-login', requirePermission(['MANAGE_B2B']), async (req: Request, res: Response) => {
+router.post('/:id/setup-login', authMiddleware, requirePermission(['MANAGE_B2B']), async (req: Request, res: Response) => {
   try {
     const { password } = req.body;
     const clientId = req.params.id;
@@ -412,7 +412,7 @@ router.post('/:id/setup-login', requirePermission(['MANAGE_B2B']), async (req: R
 });
 
 // Get client login status
-router.get('/:id/login-status', async (req: Request, res: Response) => {
+router.get('/:id/login-status', authMiddleware, async (req: Request, res: Response) => {
   try {
     const clientId = req.params.id;
 
@@ -448,7 +448,7 @@ router.get('/:id/login-status', async (req: Request, res: Response) => {
 });
 
 // Disable client login
-router.post('/:id/disable-login', requirePermission(['MANAGE_B2B']), async (req: Request, res: Response) => {
+router.post('/:id/disable-login', authMiddleware, requirePermission(['MANAGE_B2B']), async (req: Request, res: Response) => {
   try {
     const clientId = req.params.id;
 

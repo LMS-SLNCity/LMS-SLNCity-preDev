@@ -29,7 +29,7 @@ export const B2BAccountManagementModal: React.FC<B2BAccountManagementModalProps>
 
   const fetchLoginStatus = async () => {
     try {
-      const authToken = localStorage.getItem('authToken');
+      const authToken = sessionStorage.getItem('authToken');
       const response = await fetch(`${API_BASE_URL}/clients/${client.id}/login-status`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -66,7 +66,7 @@ export const B2BAccountManagementModal: React.FC<B2BAccountManagementModalProps>
 
     setIsLoading(true);
     try {
-      const authToken = localStorage.getItem('authToken');
+      const authToken = sessionStorage.getItem('authToken');
       const response = await fetch(`${API_BASE_URL}/clients/${client.id}/setup-login`, {
         method: 'POST',
         headers: {
@@ -100,7 +100,7 @@ export const B2BAccountManagementModal: React.FC<B2BAccountManagementModalProps>
 
     setIsLoading(true);
     try {
-      const authToken = localStorage.getItem('authToken');
+      const authToken = sessionStorage.getItem('authToken');
       const response = await fetch(`${API_BASE_URL}/clients/${client.id}/disable-login`, {
         method: 'POST',
         headers: {

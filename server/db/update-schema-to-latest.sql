@@ -220,7 +220,45 @@ SET patient_code = 'P' || TO_CHAR(created_at, 'YYYYMMDD') || LPAD(id::TEXT, 4, '
 WHERE patient_code IS NULL OR patient_code = '';
 
 -- ============================================================================
--- 10. VERIFY SCHEMA
+-- 10. ADD B2B CLIENT PORTAL SUPPORT
+-- ============================================================================
+
+-- Add B2B pending approval column to visits table
+ALTER TABLE visits
+ADD COLUMN IF NOT EXISTS b2b_pending_approval BOOLEAN DEFAULT FALSE;
+
+-- Create B2B client logins table if not exists
+CREATE TABLE IF NOT EXISTS b2b_client_logins (
+    id SERIAL PRIMARY KEY,
+    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    last_login TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(client_id)
+);
+
+-- Create patient report access logs table if not exists
+CREATE TABLE IF NOT EXISTS patient_report_access_logs (
+    id SERIAL PRIMARY KEY,
+    visit_id INTEGER NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
+    access_method VARCHAR(50) NOT NULL CHECK (access_method IN ('QR_CODE', 'PHONE_OTP')),
+    accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT
+);
+
+-- Add indexes for B2B features
+CREATE INDEX IF NOT EXISTS idx_visits_b2b_pending_approval ON visits(b2b_pending_approval);
+CREATE INDEX IF NOT EXISTS idx_b2b_client_logins_client_id ON b2b_client_logins(client_id);
+CREATE INDEX IF NOT EXISTS idx_patient_report_access_logs_visit_id ON patient_report_access_logs(visit_id);
+
+COMMENT ON TABLE b2b_client_logins IS 'Authentication credentials for B2B client portal access';
+COMMENT ON TABLE patient_report_access_logs IS 'Tracks patient report access via QR code or phone OTP';
+
+-- ============================================================================
+-- 11. VERIFY SCHEMA
 -- ============================================================================
 
 -- Output verification message
@@ -233,6 +271,7 @@ BEGIN
     RAISE NOTICE '✅ Patient edit requests table created';
     RAISE NOTICE '✅ Patient codes added';
     RAISE NOTICE '✅ Units table created';
+    RAISE NOTICE '✅ B2B client portal tables created';
     RAISE NOTICE '✅ All indexes created';
     RAISE NOTICE '✅ Database schema is now up to date!';
 END $$;
